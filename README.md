@@ -1,0 +1,1 @@
+# UMA_projekt_J_Szubzda_A_Wasilewska_2025L
