@@ -356,6 +356,9 @@ def analyze_dataset(X, y, name, categorical_features=None, class_mapping=None):
                 n_cats = min(5, len(categorical_features))
                 plt.figure(figsize=(20, 5*n_cats))
 
+                plt.suptitle(f"{name} - Categorical Feature Distributions", fontsize=20, y=0.98)
+                plt.figtext(0.5, 0.01, f"Top {n_cats} categorical features", ha='center', fontsize=10)
+
                 for i, cat in enumerate(categorical_features[:n_cats]):
                     if cat in X.columns:
                         plt.subplot(n_cats, 1, i+1)
@@ -383,7 +386,9 @@ def analyze_dataset(X, y, name, categorical_features=None, class_mapping=None):
                 print(f"Failed to plot categorical features for {name}")
 
     # Save the main figure
-    plt.tight_layout()
+    plt.suptitle(f"{name} Dataset Analysis", fontsize=20, y=0.995)
+    plt.figtext(0.01, 0.01, f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d')}", ha='left', fontsize=8)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])  # Add space for the title
     plt.savefig(f'figures/{name}_analysis.png', dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -416,8 +421,6 @@ def analyze_dataset(X, y, name, categorical_features=None, class_mapping=None):
 
 def load_datasets(base_dir='.'):
     datasets = {}
-    data_dir = os.path.join(base_dir, 'data')
-    os.makedirs(data_dir, exist_ok=True)
 
     # Iris dataset - ID: 53
     print("Loading Iris dataset...")
