@@ -2,6 +2,8 @@ import numpy as np
 from utils.prediction import accuracy
 
 def calculate_error(tree, X, y):
+    if len(y) == 0:
+        return 0.0
     predictions = tree.predict(X)
     return np.sum(predictions != y) / len(y)
 

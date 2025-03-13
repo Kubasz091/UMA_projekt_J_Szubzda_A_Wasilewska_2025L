@@ -5,7 +5,16 @@ from math import floor
 
 @njit(fastmath=True)
 def calculate_entropy(y):
-    _, counts = np.unique(y, return_counts=True)
+    if len(y) == 0:
+        return 0.0
+
+    # Manual counting of unique values since return_counts isn't supported in njit
+    unique_values = np.unique(y)
+    counts = np.zeros(len(unique_values), dtype=np.int64)
+
+    for i, val in enumerate(unique_values):
+        counts[i] = np.sum(y == val)
+
     probabilities = counts / len(y)
 
     entropy = 0.0
@@ -16,7 +25,16 @@ def calculate_entropy(y):
 
 @njit(fastmath=True)
 def calculate_gini_impurity(y):
-    _, counts = np.unique(y, return_counts=True)
+    if len(y) == 0:
+        return 0.0
+
+    # Manual counting of unique values
+    unique_values = np.unique(y)
+    counts = np.zeros(len(unique_values), dtype=np.int64)
+
+    for i, val in enumerate(unique_values):
+        counts[i] = np.sum(y == val)
+
     probabilities = counts / len(y)
     return 1.0 - np.sum(probabilities**2)
 

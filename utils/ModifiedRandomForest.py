@@ -80,7 +80,7 @@ class ModifiedRandomForest:
             criterion=self.criterion,
             min_samples_split=self.min_samples_split,
             min_samples_leaf=self.min_samples_leaf,
-            random_state=self.random_state
+            random_state=None # if random state is given here it will make the same tree over and over again
         )
         tree.fit(X_train, y_train, feature_indices)
 
@@ -174,7 +174,7 @@ class ModifiedRandomForest:
         for tree in self.forest:
             preds = tree.predict(X)
             for i, pred in enumerate(preds):
-                probas[i, pred] += 1
+                probas[i, int(pred)] += 1
 
         # Normalize to get probabilities
         probas /= np.sum(probas, axis=1, keepdims=True)

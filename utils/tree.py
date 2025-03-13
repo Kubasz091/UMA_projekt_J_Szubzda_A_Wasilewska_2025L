@@ -4,9 +4,11 @@ from numba import njit
 
 @njit(fastmath=True)
 def is_pure(y):
+    # Empty array is pure by definition (all elements belong to same class - there are none)
+    if len(y) <= 1:
+        return True
     return len(np.unique(y)) == 1
 
-@njit(fastmath=True)
 def compute_leaf_value(y):
     if len(y) == 0:
         return 0
@@ -87,7 +89,7 @@ class DecisionTree:
             return self._create_leaf(y)
 
         # Update feature importance
-        if info_gain > 0:
+        if info_gain > 0 and self.feature_importances_ is not None:
             self.feature_importances_[feature_idx] += info_gain * n_samples
 
         # Recursively build left and right subtrees

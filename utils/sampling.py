@@ -15,27 +15,44 @@ def normalize_weights(weights, min_weight=None):
     normalized = weights / sum_weights
 
     if min_weight is not None and min_weight > 0:
-        below_min = normalized < min_weight
-        count_below = np.sum(below_min)
+        # Quick check if min_weight is too high
+        if min_weight * len(weights) >= 1.0:
+            return np.ones(len(weights)) / len(weights)
 
-        if count_below > 0:
+        # Iterative adjustment to ensure all weights >= min_weight
+        max_iterations = 10  # Safety to prevent infinite loops and give acceptable precision
+        iteration = 0
+
+        while True:
+            below_min = normalized < min_weight
+            count_below = np.sum(below_min)
+
+            if count_below == 0 or iteration >= max_iterations:
+                break
+
+            # Calculate total weight to be allocated to below-min elements
             total_min_weight = count_below * min_weight
 
+            # If total min weight would exceed 1.0, use uniform distribution
             if total_min_weight >= 1.0:
                 return np.ones(len(weights)) / len(weights)
 
-            remaining_weight = 1.0 - total_min_weight
+            # Set all below-min values to min_weight
+            normalized[below_min] = min_weight
 
+            # Scale down above-min values proportionally
             above_min = ~below_min
             sum_above = np.sum(normalized[above_min])
 
             if sum_above > 0:
-                scale_factor = remaining_weight / sum_above
+                scale_factor = (1.0 - total_min_weight) / sum_above
                 normalized[above_min] *= scale_factor
 
-            normalized[below_min] = min_weight
+            iteration += 1
 
-            normalized = normalized / np.sum(normalized)
+        # Final normalization to ensure sum is exactly 1.0
+        normalized = normalized / np.sum(normalized)
+
     return normalized
 
 def random_selection(n_features, max_features):
