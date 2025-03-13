@@ -1,0 +1,115 @@
+\documentclass{article}
+% Random Forest Algorithm - LaTeX version
+
+% Algorithm package includes
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{comment}
+
+% Start of algorithm description
+\begin{document}
+
+\section{Zbiór walidacyjny w Random Forest}
+W standardowym algorytmie Random Forest często nie używa się jawnego zbioru walidacyjnego,
+ponieważ RF ma wbudowany mechanizm oceny wydajności poprzez tzw. out-of-bag samples (OOB) - próbki nieużyte
+podczas bootstrappingu przy budowie poszczególnych drzew.
+
+\begin{comment}
+ogólnie myśle że zbior walidacyjny nie jest specjalnie potrzebny - acc poszczegolnych drzew zrobiłoby się na zbiorach OBB, bardziej skłaniałbym sie nad zbiorem testowym i trenujacym tylko.
+\end{comment}
+
+% Data splitting notation
+\begin{algorithmic}
+\State $X_{train}, X_{test}, y_{train}, y_{test} \gets \text{split\_data}(X, y, \text{test\_ratio}=0.2)$
+\end{algorithmic}
+
+% Main algorithm
+\begin{algorithm}
+\caption{Modified Random Forest}
+\begin{algorithmic}[1]
+\Function{ModifiedRandomForest}{$X, y, n\_trees, mf, sf, md, prune, crit, wv, ew, wfs$}
+    \State $forest \gets []$
+    \State $oob\_accuracies \gets []$
+    \State $n \gets \text{length}(X)$
+    \State $n\_classes \gets \text{max}(y) + 1$
+    \State $w \gets \text{uniform\_distribution}(n)$
+
+    \Comment{Wagi są aktualizowane dopiero po trenowaniu całego lasu., a powinny być po każdym drzewiea nie po całym zestawie n\_trees.}
+    \Comment{racja}
+    \For{$i = 1$ \textbf{to} $n\_trees$}
+        \State $idx \gets \text{sample\_with\_replacement}(\text{range}(n), \text{size}=\text{round}(sf \cdot n), p=w)$
+        \State $X_i \gets X[idx]$
+        \State $y_i \gets y[idx]$
+
+        \Comment{dodaje zbiory out of bagdo oceny dokladnosci drzewa do weigted voting}
+        \State $X_{oob} \gets X[\sim idx]$
+        \State $y_{oob} \gets y[\sim idx]$
+
+        \Comment{calculate\_information\_gain(X, y) powinno być liczone tylko na podzbiorze X\_i, a nie na pełnym X bo jeśli X\_i zawiera mniej cech niż mf, może to powodować błędy}
+        \Comment{tez racja}
+        \If{$wfs$}
+            \State $ig \gets \text{calculate\_information\_gain}(X_i, y_i)$ \Comment{Liczymy IG na podzbiorze}
+            \State $features \gets \text{weighted\_random\_selection}(mf, \text{weights}=ig)$
+        \Else
+            \State $features \gets \text{random\_selection}(mf)$
+        \EndIf
+
+        \State $tree \gets \text{build\_tree}(X_i, y_i, features, md, crit)$
+        \If{$prune$}
+            \State $tree \gets \text{prune\_tree}(tree, X_i, y_i)$
+        \EndIf
+        \State $forest.\text{append}(tree)$
+
+        \Comment{Liczenie dokładności na zbiorze OOB do wazonego glosowania}
+        \State $pred_{oob} \gets tree.\text{predict}(X_{oob})$
+        \State $correct \gets (pred_{oob} = y_{oob})$
+        \State $acc_{oob} \gets \sum(correct) / \text{length}(y_{oob})$
+        \State $oob\_accuracies.\text{append}(acc_{oob})$
+
+        \State $pred \gets tree.\text{predict}(X)$
+        \State $errors \gets (pred \neq y)$
+
+        \Comment{Aktualizacja wag próbek (adaptacyjne ważenie)}
+        \For{$j = 0$ \textbf{to} $\text{length}(y) - 1$}
+            \If{$errors[j]$}
+                \State $w[j] \gets w[j] \cdot (1 + ew)$
+            \EndIf
+        \EndFor
+        \State $w \gets \text{normalize\_weights}(w)$
+    \EndFor
+    \State \Return $forest, oob\_accuracies$
+    \Comment{można zrobić klase forest i zamknąć to troche lepiej w finalnym kodzie, ale wstępnie mogłoby to wyglądać tak}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+% Prediction algorithm
+\begin{algorithm}
+\caption{Predict with Modified Random Forest}
+\begin{algorithmic}[1]
+\Function{predict}{$forest, X, wv, acc$}
+    \State $predictions \gets []$
+    \For{$tree \in forest$}
+        \State $pred \gets tree.\text{predict}(X)$
+        \State $predictions.\text{append}(pred)$
+    \EndFor
+
+    \Comment{Brak dokładnej definicji weighted\_majority\_vote – czy wagi są proporcjonalne do dokładności drzewa? Co jeśli dokładność jakiegoś drzewa jest bliska 0? Czy powinno ono być brane pod uwagę? z załozenia wtedy to jak bardzo było by brane pod uwage bedzie zalezec od wspolczynnika}
+    \Comment{Po zastanowieniu to zebrałbym accuracies na zbiorach OOB, jak na gorze napisane i wzgledem nich robil liniowy wplyw tych accuracies na wagi przy glosowaniu z paremetrem ew}
+    \If{$wv$}
+        \State $weights \gets \text{normalize\_weights}(acc)$ \Comment{myśle że lepiej pomyśleć nad dodaniem parametru minimalnej wagi do normalize weights niż tutaj to hardcodować}
+        \State $final\_pred \gets \text{weighted\_majority\_vote}(predictions, weights)$
+    \Else
+        \State $final\_pred \gets \text{majority\_vote}(predictions)$
+    \EndIf
+
+    \State \Return $final\_pred$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

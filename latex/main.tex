@@ -1,0 +1,503 @@
+% !TEX root = main.tex
+
+\documentclass[12pt,a4paper]{article}
+\pdfminorversion=7
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{pdfpages}
+\usepackage{microtype}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{purple},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    breaklines=true,
+    frame=single,
+    captionpos=b
+}
+
+\title{Projekt Wstępny: Zmodyfikowany Algorytm Lasu Losowego z Adaptacyjnym Ważeniem Próbek}
+\author{Imię Nazwisko}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Opis projektu i zrozumienie problemu}
+
+Niniejszy projekt dotyczy implementacji zmodyfikowanej wersji algorytmu generowania lasu losowego (Random Forest), w której do generowania kolejnych drzew losowane są częściej elementy ze zbioru uczącego, na których dotychczasowy model się mylił. Takie podejście łączy w sobie zalety standardowego lasu losowego z mechanizmem adaptacyjnego ważenia próbek znanym z algorytmów boostingowych jak AdaBoost.
+
+Standardowy algorytm Random Forest bazuje na idei tworzenia wielu niezależnych drzew decyzyjnych na losowych podzbiorach danych oraz cech, a następnie łączeniu ich predykcji poprzez głosowanie. Główną zaletą tego podejścia jest redukcja wariancji i zmniejszenie ryzyka przeuczenia w porównaniu do pojedynczych drzew decyzyjnych. Jednak klasyczny algorytm Random Forest traktuje wszystkie próbki treningowe z równym prawdopodobieństwem wyboru.
+
+Proponowana modyfikacja wprowadza mechanizm adaptacyjnego losowania próbek, gdzie prawdopodobieństwo wybrania danej próbki do konstrukcji kolejnego drzewa zależy od tego, jak dobrze dotychczasowy las radzi sobie z jej klasyfikacją. Próbki, które były błędnie klasyfikowane przez już wygenerowane drzewa, otrzymują wyższe wagi, zwiększając szansę ich wyboru w kolejnych iteracjach. Takie podejście pozwala modelowi skupić się na trudniejszych przypadkach, potencjalnie poprawiając ogólną dokładność klasyfikacji.
+
+\section{Ogólny opis algorytmów}
+
+\subsection{Algorytm AdaBoost i zmodyfikowany Random Forest}
+
+\subsubsection{Standardowy algorytm Random Forest}
+Random Forest tworzy wiele drzew decyzyjnych, gdzie każde drzewo jest trenowane na losowym podzbiorze danych (metoda bootstrap) oraz losowym podzbiorze cech. Predykcje wszystkich drzew są łączone przez głosowanie.
+
+\subsubsection{Algorytm AdaBoost}
+AdaBoost iteracyjnie uczy słabe klasyfikatory, dostosowując wagi próbek po każdej iteracji, aby zwiększyć znaczenie błędnie sklasyfikowanych przykładów.
+
+
+\subsubsection{Nasz Algorytm:}
+Parametry:
+\begin{enumerate}
+    \item \textbf{X:} training features, \textbf{y:} training labels
+    \item \textbf{n\_trees:} number of trees
+    \item \textbf{mf:} max features per tree
+    \item \textbf{sf:} sample fraction
+    \item \textbf{md:} max depth
+    \item \textbf{prune:} enable pruning
+    \item \textbf{crit:} split criterion
+    \item \textbf{wv:} weighted voting
+    \item \textbf{ew:} error weight increase
+    \item \textbf{wfs:} weighted feature sampling
+\end{enumerate}
+\clearpage
+\begin{lstlisting}[caption=Pseudokod zmodyfikowanego algorytmu Random Forest]
+Function ModifiedRandomForest(X, y, n_trees, mf, sf, md, prune, crit, wv, ew, wfs):
+    forest = []
+    n = length(X)
+    w = uniform_distribution(n)  # Initialize sample weights
+
+    for i = 1 to n_trees:
+        idx = sample_with_replacement(range(n), size=round(sf*n), p=w)
+        X_i = X[idx]
+        y_i = y[idx]
+        if wfs:
+            ig = calculate_information_gain(X, y)
+            features = weighted_random_selection(mf, weights=ig)
+        else:
+            features = random_selection(mf)
+        tree = build_tree(X_i, y_i, features, md, crit)
+        if prune:
+            tree = prune_tree(tree, X_i, y_i)
+        forest.append(tree)
+        pred = predict(forest, X, wv)
+        errors = (pred != y)
+        for j = 0 to n-1:
+            if errors[j]:
+                w[j] *= (1 + ew)
+        w = w / sum(w)
+    return forest
+
+Function predict(forest, X, wv):
+    predictions = []
+    for tree in forest:
+        pred = tree.predict(X)
+        predictions.append(pred)
+    if wv:
+        weights = []
+        for tree in forest:
+            acc = accuracy(tree, X_val, y_val)
+            weights.append(acc)
+        final_pred = weighted_majority_vote(predictions, weights)
+    else:
+        final_pred = majority_vote(predictions)
+    return final_pred
+\end{lstlisting}
+
+\subsection{Funkcje pomocnicze do implementacji}
+
+Realizacja zmodyfikowanego algorytmu Random Forest wymaga implementacji następujących funkcji pomocniczych:
+
+\begin{enumerate}
+    \item \textbf{Funkcje związane z próbkowaniem i wagami:}
+    \begin{enumerate}
+        \item \texttt{uniform\_distribution} -- tworzy tablicę jednakowych wag dla wszystkich próbek
+        \item \texttt{sample\_with\_replacement} -- losuje próbki według zadanego rozkładu prawdopodobieństwa
+        \item \texttt{normalize\_weights} -- normalizuje wektor wag, aby sumował się do 1
+    \end{enumerate}
+
+    \item \textbf{Funkcje do wyboru cech:}
+    \begin{enumerate}
+        \item \texttt{calculate\_information\_gain} -- oblicza zysk informacyjny dla wszystkich cech
+        \item \texttt{calculate\_gini\_impurity} -- oblicza współczynnik nieczystości Giniego dla możliwych podziałów
+        \item \texttt{weighted\_random\_selection} -- wybiera cechy z prawdopodobieństwem proporcjonalnym do ich wag
+        \item \texttt{random\_selection} -- wybiera cechy z równomiernym prawdopodobieństwem
+    \end{enumerate}
+
+    \item \textbf{Funkcje budowy drzewa:}
+    \begin{enumerate}
+        \item \texttt{build\_tree} -- główna funkcja rekurencyjnie budująca drzewo decyzyjne
+        \item \texttt{find\_best\_split} -- znajduje optymalną cechę i próg dla węzła
+        \item \texttt{split\_node} -- dzieli dane na podstawie cechy i progu
+        \item \texttt{create\_leaf} -- tworzy węzeł końcowy (liść) z klasą większościową
+        \item \texttt{is\_pure} -- sprawdza, czy wszystkie próbki w węźle należą do tej samej klasy
+        \item \texttt{calculate\_entropy} -- oblicza entropię do obliczeń zysku informacyjnego
+    \end{enumerate}
+
+    \item \textbf{Funkcje przycinania drzewa:}
+    \begin{enumerate}
+        \item \texttt{prune\_tree} -- implementuje przycinanie drzewa decyzyjnego po jego zbudowaniu
+        \item \texttt{calculate\_error} -- ocenia błąd poddrzewa na danych walidacyjnych
+        \item \texttt{evaluate\_prune\_candidate} -- sprawdza, czy zastąpienie poddrzewa liściem poprawia wyniki
+    \end{enumerate}
+
+    \item \textbf{Funkcje predykcji:}
+    \begin{enumerate}
+        \item \texttt{predict\_tree} -- uzyskuje predykcje z pojedynczego drzewa decyzyjnego
+        \item \texttt{majority\_vote} -- łączy predykcje za pomocą prostego głosowania
+        \item \texttt{weighted\_majority\_vote} -- łączy predykcje z wagami opartymi na dokładności drzewa
+        \item \texttt{accuracy} -- oblicza dokładność klasyfikacji modelu
+    \end{enumerate}
+
+    \item \textbf{Funkcje przetwarzania danych:}
+    \begin{enumerate}
+        \item \texttt{handle\_missing\_values} -- uzupełnia lub obsługuje brakujące wartości
+        \item \texttt{encode\_categorical} -- konwertuje cechy kategoryczne na reprezentację numeryczną
+        \item \texttt{compute\_leaf\_value} -- określa wartość predykcji dla węzła liścia
+    \end{enumerate}
+
+    \item \textbf{Funkcje ewaluacji:}
+    \begin{enumerate}
+        \item \texttt{confusion\_matrix} -- tworzy macierz pomyłek do oceny
+        \item \texttt{calculate\_metrics} -- oblicza precyzję, recall, F1 i inne metryki
+        \item \texttt{cross\_validate} -- implementuje k-krotną walidację krzyżową do oceny modelu
+        \item \texttt{roc\_auc} -- oblicza pole pod krzywą ROC dla klasyfikacji binarnej
+    \end{enumerate}
+
+    \item \textbf{Implementacja węzłów drzewa:}
+    \begin{enumerate}
+        \item \texttt{create\_node} -- tworzy strukturę wewnętrznego węzła drzewa
+        \item \texttt{check\_stopping\_criteria} -- sprawdza, czy budowa drzewa powinna się zatrzymać (głębokość, min\_samples itp.)
+    \end{enumerate}
+\end{enumerate}
+
+Powyższe funkcje zapewnią kompletną implementację algorytmu zmodyfikowanego lasu losowego ze wszystkimi określonymi opcjami parametryzacji.
+
+\subsection{Parametry algorytmu}
+
+Proponowany algorytm zawiera następujące parametry konfiguracyjne:
+
+\begin{enumerate}
+    \item \textbf{liczba cech branych do każdego drzewa} (\texttt{max\_features}) -- określa ile cech jest losowanych do konstrukcji pojedynczego drzewa
+    \item \textbf{część przykładów brana do każdego drzewa} (\texttt{sample\_fraction}) -- określa jaki procent zbioru treningowego jest używany do trenowania pojedynczego drzewa
+    \item \textbf{liczba drzew} (\texttt{n\_trees}) -- określa rozmiar lasu losowego
+    \item \textbf{maksymalna głębokość drzewa} (\texttt{max\_depth}) -- ogranicza złożoność pojedynczych drzew
+    \item \textbf{przycinanie drzew} (\texttt{pruning}) -- czy drzewa powinny być przycinane po wygenerowaniu
+    \item \textbf{kryterium podziału} (\texttt{criterion}) -- wybór między miarami Gini Impurity i Information Gain
+    \item \textbf{ważone głosowanie} (\texttt{weighted\_voting}) -- czy głosy drzew są ważone względem ich dokładności
+    \item \textbf{wzrost wagi błędnie sklasyfikowanych przykładów} (\texttt{error\_weight\_increase}) -- określa o ile procent wzrasta waga źle sklasyfikowanych przykładów
+    \item \textbf{ważone losowanie cech} (\texttt{weighted\_feature\_sampling}) -- czy cechy są losowane z prawdopodobieństwem proporcjonalnym do ich Information Gain
+\end{enumerate}
+
+\subsection{Przykładowe obliczenia}
+
+\subsubsection{Przykład 1: Standardowy Random Forest}
+W tym wariancie $\texttt{error\_weight\_increase} = 0$ i $\texttt{weighted\_voting} = \text{False}$:
+\begin{itemize}
+    \item Wszystkie próbki mają zawsze równe prawdopodobieństwo wyboru
+    \item Głosowanie jest równomierne (1 drzewo = 1 głos)
+\end{itemize}
+
+\subsubsection{Przykład 2: Adaptacyjne ważenie próbek}
+Z parametrami $\texttt{error\_weight\_increase} = 0.5$, $\texttt{weighted\_voting} = \text{False}$:
+
+\begin{enumerate}
+    \item Inicjalizacja: wagi = $[0.2, 0.2, 0.2, 0.2, 0.2]$ dla 5 próbek
+    \item Po pierwszej iteracji 2 próbki zostały błędnie sklasyfikowane (1 i 4):
+    \begin{itemize}
+        \item wagi[1] *= 1.5 = 0.3
+        \item wagi[4] *= 1.5 = 0.3
+        \item Po normalizacji: wagi = $[0.167, 0.25, 0.167, 0.167, 0.25]$
+    \end{itemize}
+    \item Próbki 1 i 4 mają teraz większą szansę na wylosowanie w kolejnej iteracji
+\end{enumerate}
+
+\subsubsection{Przykład 3: Ważone głosowanie drzew}
+Przy $\texttt{weighted\_voting} = \text{True}$, jeśli mamy 3 drzewa o dokładnościach $[0.8, 0.65, 0.9]$:
+\begin{itemize}
+    \item Dla predykcji klasy 1: $[1, 0, 1]$
+    \item Ważony wynik = $0.8 \cdot 1 + 0.65 \cdot 0 + 0.9 \cdot 1 = 1.7$
+    \item Dla predykcji klasy 0: $[0, 1, 0]$
+    \item Ważony wynik = $0.8 \cdot 0 + 0.65 \cdot 1 + 0.9 \cdot 0 = 0.65$
+    \item Finalna predykcja: klasa 1 (1.7 > 0.65)
+\end{itemize}
+
+\subsubsection{Przykład 4: Ważone losowanie cech}
+Przy $\texttt{weighted\_feature\_sampling} = \text{True}$ i Information Gain cech $[0.5, 0.3, 0.1, 0.05]$:
+\begin{itemize}
+    \item Znormalizowane IG: $[0.53, 0.32, 0.10, 0.05]$
+    \item Przy losowaniu 2 cech do drzewa, pierwsza cecha ma $\sim$53\% szansy, a czwarta tylko $\sim$5\% szansy
+\end{itemize}
+
+\section{Szacunkowy plan eksperymentów}
+
+\subsection{Metodologia}
+
+Eksperymenty będą przeprowadzone w języku Python z wykorzystaniem biblioteki NumPy, SciPy oraz Numba dla optymalizacji wydajności. Kompilacja kodu z Numba pozwoli na znaczne przyspieszenie obliczeń, szczególnie dla dużych zbiorów danych.
+
+\subsection{Porównania algorytmów}
+
+Plan zakłada porównanie następujących algorytmów:
+\begin{itemize}
+    \item Standardowy Random Forest (scikit-learn)
+    \item AdaBoost (scikit-learn)
+    \item Zmodyfikowany Random Forest (nasza implementacja) w różnych konfiguracjach
+\end{itemize}
+
+\subsection{Konfiguracje algorytmu}
+
+Przetestujemy wpływ różnych parametrów na wydajność modelu. Dla każdego z parametrów przeprowadzimy eksperymenty z następującymi wartościami:
+
+\begin{enumerate}
+    \item \textbf{Liczba cech branych do każdego drzewa} (\texttt{max\_features}):
+    \begin{itemize}
+        \item $\sqrt{n\_features}$ (domyślna wartość w większości implementacji)
+        \item $\log_2(n\_features)$
+        \item $0.3 \cdot n\_features$
+        \item $n\_features$ (wszystkie cechy)
+    \end{itemize}
+
+    \item \textbf{Część przykładów brana do każdego drzewa} (\texttt{sample\_fraction}):
+    \begin{itemize}
+        \item 0.5 (50\% próbek treningowych)
+        \item 0.7 (70\% próbek treningowych)
+        \item 0.9 (90\% próbek treningowych)
+    \end{itemize}
+
+    \item \textbf{Liczba drzew} (\texttt{n\_trees}):
+    \begin{itemize}
+        \item 10 drzew
+        \item 50 drzew
+        \item 100 drzew
+        \item 200 drzew
+    \end{itemize}
+
+    \item \textbf{Maksymalna głębokość drzewa} (\texttt{max\_depth}):
+    \begin{itemize}
+        \item 5 (płytkie drzewa)
+        \item 10 (średnio głębokie drzewa)
+        \item None (brak ograniczenia głębokości)
+    \end{itemize}
+
+    \item \textbf{Przycinanie drzew} (\texttt{pruning}):
+    \begin{itemize}
+        \item True (z przycinaniem)
+        \item False (bez przycinania)
+    \end{itemize}
+
+    \item \textbf{Kryterium podziału} (\texttt{criterion}):
+    \begin{itemize}
+        \item `gini' (współczynnik Giniego)
+        \item `entropy' (Information Gain)
+    \end{itemize}
+
+    \item \textbf{Ważone głosowanie} (\texttt{weighted\_voting}):
+    \begin{itemize}
+        \item True (z ważeniem głosów drzew)
+        \item False (bez ważenia głosów)
+    \end{itemize}
+
+    \item \textbf{Wzrost wagi błędnie sklasyfikowanych przykładów} (\texttt{error\_weight\_increase}):
+    \begin{itemize}
+        \item 0.0 (standardowy Random Forest bez zwiększania wag)
+        \item 0.1 (niewielkie zwiększenie wag)
+        \item 0.3 (umiarkowane zwiększenie wag)
+        \item 0.5 (znaczące zwiększenie wag)
+        \item 1.0 (podwojenie wagi błędnych przykładów)
+    \end{itemize}
+
+    \item \textbf{Ważone losowanie cech} (\texttt{weighted\_feature\_sampling}):
+    \begin{itemize}
+        \item True (cechy losowane z uwzględnieniem ich ważności)
+        \item False (cechy losowane równomiernie)
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Przestrzeń eksperymentów i strategia poszukiwań}
+\begin{sloppypar}
+Pełna przestrzeń poszukiwań dla wszystkich kombinacji parametrów wynosi:
+\begin{equation}
+4 \times 3 \times 4 \times 3 \times 2 \times 2 \times 2 \times 5 \times 2 = 5760
+\end{equation}
+konfiguracji dla każdego z 5 zbiorów danych, co daje łącznie 28800 eksperymentów.
+\end{sloppypar}
+
+Ze względu na dużą liczbę kombinacji, zastosujemy dwufazową strategię eksperymentów:
+
+\begin{enumerate}
+    \item \textbf{Faza 1: Eksploracja wpływu indywidualnych parametrów} -- każdy parametr będzie testowany niezależnie, przy ustalonych wartościach domyślnych dla pozostałych parametrów.
+
+    \item \textbf{Faza 2: Optymalizacja z użyciem najlepszych wartości} -- na podstawie wyników fazy 1, wybierzemy najbardziej obiecujące wartości każdego parametru i przeprowadzimy eksperymenty na ich kombinacjach, wykorzystując metody przeszukiwania jak RandomizedSearchCV.
+\end{enumerate}
+
+\textbf{Wartości domyślne parametrów dla Fazy 1:}
+\begin{itemize}
+    \item max\_features = $\sqrt{n\_features}$
+    \item sample\_fraction = 0.7
+    \item n\_trees = 100
+    \item max\_depth = None
+    \item pruning = False
+    \item criterion = `gini'
+    \item weighted\_voting = False
+    \item error\_weight\_increase = 0.3
+    \item weighted\_feature\_sampling = False
+\end{itemize}
+
+\subsection{Metryki oceny}
+
+Do ewaluacji modeli wykorzystamy następujące metryki:
+\begin{itemize}
+    \item \textbf{Accuracy} -- procent poprawnie sklasyfikowanych przykładów:
+    \begin{equation}
+    \text{Accuracy} = \frac{\text{TP} + \text{TN}}{\text{TP} + \text{TN} + \text{FP} + \text{FN}}
+    \end{equation}
+
+    \item \textbf{Precision} -- precyzja, czyli stosunek prawdziwie pozytywnych do wszystkich pozytywnych predykcji:
+    \begin{equation}
+    \text{Precision} = \frac{\text{TP}}{\text{TP} + \text{FP}}
+    \end{equation}
+
+    \item \textbf{Recall} -- czułość, czyli stosunek prawdziwie pozytywnych do wszystkich faktycznie pozytywnych:
+    \begin{equation}
+    \text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
+    \end{equation}
+
+    \item \textbf{F1 Score} -- średnia harmoniczna precision i recall:
+    \begin{equation}
+    \text{F1} = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+    \end{equation}
+
+    \item \textbf{ROC AUC} -- pole pod krzywą ROC, mierzące zdolność klasyfikatora do rozróżniania klas
+    \item \textbf{Macierz pomyłek} -- wizualizacja poprawnych i niepoprawnych klasyfikacji
+\end{itemize}
+
+% Dodatkowo dla zadań klasyfikacji wieloklasowej będziemy stosować:
+% \begin{itemize}
+%    \item Micro-averaged F1
+%    \item Macro-averaged F1
+%    \item Weighted F1
+% \end{itemize}
+
+\subsection{Oczekiwane wyniki}
+\begin{sloppypar}
+Spodziewamy się następujących rezultatów:
+\begin{enumerate}
+    \item Zmodyfikowany Random Forest powinien przewyższać standardowy Random Forest na zbiorach danych z trudnymi przypadkami brzegowymi
+    \item Adaptacyjne ważenie próbek powinno szczególnie poprawić wyniki na niezbalansowanych zbiorach danych (Bank Marketing, Adult Census)
+    \item Ważone głosowanie drzew powinno zwiększyć dokładność końcowych predykcji, zwłaszcza na zbiorach z szumem
+    \item Ważone losowanie cech powinno poprawić wybór najważniejszych cech na zbiorach z dużą liczbą parametrów (MNIST)
+    \item Dla zbiorów z wieloma klasami (MNIST, Wine Quality) przewidujemy poprawę wskaźników F1 o 2--5\% w porównaniu do standardowego Random Forest
+    \item W przypadku zbiorów niezbalansowanych (Bank Marketing) spodziewamy się poprawy w recall klasy mniejszościowej o 5--10\%
+    \item Kompromis między czasem obliczeniowym a jakością predykcji będzie różny dla różnych konfiguracji i zbiorów danych -- oczekujemy, że największe lasy (200 drzew) będą dawały najlepsze wyniki, ale z malejącą korzyścią w stosunku do kosztów obliczeniowych
+\end{enumerate}
+\end{sloppypar}
+
+\section{Opis zbiorów danych do badań}
+
+\subsection{Zbiory danych}
+
+Do eksperymentów wybrano 5 różnych zbiorów danych z bazy UCI i Kaggle:
+
+\subsubsection{Iris Dataset}
+Mały zbiór zawierający dane o kwiatach irysa, 3 klasy
+\begin{itemize}
+    \item 150 próbek
+    \item 4 cechy
+    \item Zbalansowane klasy (po 50 próbek na klasę)
+\end{itemize}
+
+\subsubsection{Wine Quality Dataset}
+Średni zbiór danych dotyczący jakości wina
+\begin{itemize}
+    \item 6497 próbek
+    \item 11 cech
+    \item Problem klasyfikacji z kilkoma klasami jakości (od 3 do 9)
+\end{itemize}
+
+\subsubsection{Adult Census Income Dataset}
+Większy zbiór z cechami kategorycznymi i numerycznymi
+\begin{itemize}
+    \item 48842 próbek
+    \item 14 cech (mieszanka numerycznych i kategorycznych)
+    \item 2 klasy (dochód >50K lub $\leq$ 50K)
+    \item Umiarkowanie niezbalansowane klasy ($\sim$25\% klasy minoritet)
+\end{itemize}
+
+\subsubsection{Bank Marketing Dataset}
+Zbiór z niezbalansowanymi klasami
+\begin{itemize}
+    \item 45211 próbek
+    \item 16 cech (mieszanka numerycznych i kategorycznych)
+    \item 2 klasy (czy klient zapisał się na lokatę terminową)
+    \item Silnie niezbalansowane ($\sim$11\% klasy pozytywnej)
+\end{itemize}
+
+\subsubsection{MNIST}
+Duży zbiór danych do klasyfikacji obrazów (wyzwanie dla algorytmów nieneuronowych)
+\begin{itemize}
+    \item 60000 próbek treningowych, 10000 testowych
+    \item 784 cechy (piksele 28x28)
+    \item 10 klas (cyfry 0--9)
+\end{itemize}
+
+\subsection{Analiza zbiorów danych używanych w projekcie}
+
+W analizie zbiorów danych wykorzystamy następujące miary i techniki:
+
+\begin{itemize}
+    \item \textbf{Liczba próbek, cech, klas} -- podstawowa charakterystyka rozmiaru zbioru danych
+    \item \textbf{Liczebność klas} -- pomaga zidentyfikować niezbalansowanie danych
+    \item \textbf{Procent braków w cechach} -- wskazuje na kompletność danych
+    \item \textbf{Wzorce braków} -- identyfikacja systematycznych braków, które mogą wpływać na model
+    \item \textbf{Rozkład cech} -- szczególnie istotna dla cech kategorycznych
+    \item \textbf{Macierz korelacji} -- obliczana przez współczynnik Pearsona:
+    \begin{equation}
+    r_{xy} = \frac{\sum_{i=1}^{n}(x_i-\bar{x})(y_i-\bar{y})}{\sqrt{\sum_{i=1}^{n}(x_i-\bar{x})^2 \sum_{i=1}^{n}(y_i-\bar{y})^2}}
+    \end{equation}
+
+    \item \textbf{Mutual Information (MI)} -- mierzy zależność między zmiennymi:
+    \begin{equation}
+    I(X;Y) = \sum_{y \in Y} \sum_{x \in X} p(x,y) \log\left(\frac{p(x,y)}{p(x)p(y)}\right)
+    \end{equation}
+    \item \textbf{Information Gain (IG)} -- mierzy redukcję entropii:
+    \begin{equation}
+    IG(S, A) = H(S) - \sum_{v \in Values(A)} \frac{|S_v|}{|S|} H(S_v)
+    \end{equation}
+\end{itemize}
+
+\begin{table}[H]
+\caption{Porównanie dataset-ów}
+\label{tab:dataset_comparison}
+\begin{tabular}{lccccc}
+\toprule
+
+Dataset & Samples & Features & Classes & Imbalance Ratio & Missing Values(\%) \\
+\midrule
+Iris & 150 & 4 & 3 & 1 & 0 \\
+Wine & 6497 & 11 & 7 & 567.2 & 0 \\
+Adult & 48842 & 14 & 2 & 5.23 & 0.32 \\
+Bank & 45211 & 16 & 2 & 7.55 & 7.21 \\
+MNIST & 70000 & 784 & 10 & 1.25 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Analiza wizualna zbiorów}
+\clearpage
+\includepdf[pages=-]{combined_plots.pdf}
+
+\end{document}

@@ -2,3 +2,9 @@
 !requirements.txt
 *.data
 *.csv
+latex/*
+!latex/algo_pseudocode.tex
+!latex/main.tex
+*.pyc
+.vscode/*
+*.pkl
