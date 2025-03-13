@@ -7,3 +7,4 @@ latex/*
 !latex/main.tex
 *.pyc
 .vscode/*
+*.pkl
