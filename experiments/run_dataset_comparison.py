@@ -9,29 +9,23 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.preprocessing import LabelEncoder
 
-# Add project root to sys.path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
 from utils.ModifiedRandomForest import ModifiedRandomForest
 
-# --- Configuration ---
 BASE_RESULTS_DIR = os.path.join(project_root, 'experiments', 'results', 'dataset_comparison')
 PLOTS_DIR = os.path.join(BASE_RESULTS_DIR, 'plots')
 DATA_DIR = os.path.join(project_root, 'preprocessed_datasets')
-# No longer need DATASET_LIST_PATH
 
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
-# --- Helper Functions ---
 def load_preprocessed_data(dataset_name_from_list, data_dir):
-    # Precise mapping from dataset_list.txt names to .pkl filenames from full_preprocessing.py
-    # Selecting a primary version for each dataset for comparison.
     filename_map = {
         "Iris": "Iris_original.pkl",
         "Wine Quality (original)": "Wine_original.pkl",
         "Adult Census": "AdultCensus_basic_clean.pkl",
-        "Bank Marketing": "BankMarketing_basic_imputed.pkl", # Using imputed version
+        "Bank Marketing": "BankMarketing_basic_imputed.pkl",
         "MNIST": "MNIST_filters_only.pkl"
     }
 
@@ -51,7 +45,6 @@ def load_preprocessed_data(dataset_name_from_list, data_dir):
 
     X = data_dict['X']
     y = data_dict['y']
-    # class_mapping = data_dict.get('class_mapping')
 
     if isinstance(X, pd.DataFrame):
         X = X.values
@@ -67,19 +60,17 @@ def load_preprocessed_data(dataset_name_from_list, data_dir):
     return X, y, le
 
 def calculate_metrics(y_true, y_pred, y_proba, num_classes, le, model_name):
-    # For ROC AUC, ensure y_proba is correctly shaped
     roc_auc_val = np.nan
     if y_proba is not None:
         try:
             if num_classes == 2:
-                 # Ensure y_proba is for the positive class
                 if y_proba.ndim == 2 and y_proba.shape[1] == 2:
                     roc_auc_val = roc_auc_score(y_true, y_proba[:, 1])
-                elif y_proba.ndim == 1: # If it's already proba of positive class
+                elif y_proba.ndim == 1:
                      roc_auc_val = roc_auc_score(y_true, y_proba)
                 else:
                     print(f"Warning: y_proba shape {y_proba.shape} not suitable for binary ROC AUC for {model_name}.")
-            else: # multiclass
+            else:
                 if y_proba.ndim == 2 and y_proba.shape[1] == num_classes:
                     roc_auc_val = roc_auc_score(y_true, y_proba, multi_class='ovr', average='weighted')
                 else:
@@ -104,7 +95,6 @@ def plot_comparison_metrics(all_results_df, save_dir):
     for metric in metrics_to_plot:
         plt.figure(figsize=(12, 7))
 
-        # Create a pivot table for easier plotting
         pivot_df = all_results_df.pivot(index='dataset', columns='model', values=metric)
 
         if pivot_df.empty:
@@ -126,8 +116,6 @@ def plot_comparison_metrics(all_results_df, save_dir):
         plt.close()
         print(f"Saved comparison plot: {plot_path}")
 
-# --- Main Experiment Logic ---
-# Hardcoded dataset names (ensure these match keys in filename_map)
 dataset_names = [
     "Iris",
     "Wine Quality (original)",
@@ -136,7 +124,6 @@ dataset_names = [
     "MNIST"
 ]
 
-# Default parameters for ModifiedRandomForest (from main.tex Phase 1 defaults)
 mrf_default_params = {
     'n_trees': 50,
     'sample_fraction': 0.7,
@@ -167,7 +154,6 @@ for dataset_name in dataset_names:
 
     print(f"  Data: X_train {X_train.shape}, y_train {y_train.shape}, n_features {n_features}, num_classes {num_classes}")
 
-    # Resolve max_features for MRF (sqrt(n_features))
     mrf_params = mrf_default_params.copy()
 
     models_to_compare = {
@@ -212,13 +198,11 @@ for dataset_name in dataset_names:
         all_comparison_results.append(eval_metrics)
         print(f"    {model_name} Metrics: {eval_metrics}")
 
-# Save all comparison results
 comparison_df = pd.DataFrame(all_comparison_results)
 results_csv_path = os.path.join(BASE_RESULTS_DIR, 'dataset_comparison_results.csv')
 comparison_df.to_csv(results_csv_path, index=False)
 print(f"\nAll dataset comparison results saved to {results_csv_path}")
 
-# Plot comparison metrics
 if not comparison_df.empty:
     plot_comparison_metrics(comparison_df, PLOTS_DIR)
 else:

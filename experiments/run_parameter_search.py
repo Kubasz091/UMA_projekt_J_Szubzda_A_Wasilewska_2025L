@@ -8,30 +8,27 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from sklearn.preprocessing import LabelEncoder
 
-# Add project root to sys.path to allow importing project modules
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
-from utils.ModifiedRandomForest import ModifiedRandomForest # Corrected import path
+from utils.ModifiedRandomForest import ModifiedRandomForest
 
-# --- Configuration ---
 BASE_RESULTS_DIR = os.path.join(project_root, 'experiments', 'results', 'parameter_search')
 PLOTS_DIR = os.path.join(BASE_RESULTS_DIR, 'plots')
 DATA_DIR = os.path.join(project_root, 'preprocessed_datasets')
-DATASET_NAME = 'wine_quality_original' # Dataset for parameter search
+DATASET_NAME = 'wine_quality_original'
 
-# Create directories if they don't exist
 os.makedirs(PLOTS_DIR, exist_ok=True)
 
 
 def calculate_metrics(y_true, y_pred, y_proba, num_classes, le):
-    if y_proba is None and num_classes > 2: # Cannot calculate roc_auc without predict_proba
+    if y_proba is None and num_classes > 2:
         roc_auc = np.nan
-    elif y_proba is None and num_classes == 2: # Binary case, can derive from y_pred if needed, but better to have proba
-         roc_auc = np.nan # Or try to compute if y_pred is available, but it's not ideal
+    elif y_proba is None and num_classes == 2:
+         roc_auc = np.nan
     elif num_classes == 2:
         roc_auc = roc_auc_score(y_true, y_proba[:, 1])
-    else: # multiclass
+    else:
         roc_auc = roc_auc_score(y_true, y_proba, multi_class='ovr', average='weighted')
 
     return {
@@ -48,7 +45,6 @@ def plot_metrics_vs_param(param_name, param_values, metrics_df, save_dir):
 
     metric_keys = ['accuracy', 'precision', 'recall', 'f1_score', 'roc_auc', 'fit_time']
 
-    # Convert param_values to string for categorical plotting if necessary
     str_param_values = [str(pv) for pv in param_values]
 
     for i, metric in enumerate(metric_keys):
@@ -58,7 +54,7 @@ def plot_metrics_vs_param(param_name, param_values, metrics_df, save_dir):
             axs[i].set_xlabel(param_name)
             axs[i].set_ylabel(metric.replace("_", " ").title())
             axs[i].grid(True)
-            if len(str_param_values) > 5: # Rotate labels if too many
+            if len(str_param_values) > 5:
                  axs[i].tick_params(axis='x', rotation=45)
 
     plt.tight_layout()
@@ -67,7 +63,6 @@ def plot_metrics_vs_param(param_name, param_values, metrics_df, save_dir):
     plt.close(fig)
     return plot_path
 
-# --- Main Experiment Logic ---
 print(f"Loading data: {DATASET_NAME}")
 
 pkl_filename = "Wine_original.pkl"
@@ -99,7 +94,6 @@ num_classes = len(np.unique(y_train))
 print(f"Data loaded: X_train shape {X_train.shape}, y_train shape {y_train.shape}, n_features {n_features}, num_classes {num_classes}")
 
 
-# Default parameters (as per main.tex)
 default_params = {
     'n_trees': 50,
     'sample_fraction': 0.7,
@@ -108,16 +102,14 @@ default_params = {
     'criterion': 'gini',
     'error_weight_increase': 0.3,
     'weighted_feature_sampling': False,
-    'weighted_voting': False, # This controls use_weighted_vote in predict
-    'min_samples_split': 2, # Assuming default
-    'min_samples_leaf': 1,  # Assuming default
+    'weighted_voting': False,
+    'min_samples_split': 2,
+    'min_samples_leaf': 1,
     'random_state': 42
 }
 
-# Parameter grid for tuning (as per main.tex)
-# max_features needs special handling as it depends on n_features
 param_grid = {
-    'max_features_config': ['sqrt', 0.3, 0.5, 1.0], # 1.0 means all features
+    'max_features_config': ['sqrt', 0.3, 0.5, 1.0],
     'sample_fraction': [0.5, 0.7, 0.9],
     'n_trees': [10, 50, 100, 200],
     'max_depth': [5, 10, None],
@@ -130,7 +122,6 @@ param_grid = {
 
 all_results = []
 
-# Function to resolve max_features
 def resolve_max_features(config_val, num_feats):
     if config_val == 'sqrt':
         return int(np.sqrt(num_feats)) if num_feats > 0 else 1
@@ -140,9 +131,8 @@ def resolve_max_features(config_val, num_feats):
         return int(config_val * num_feats) if num_feats > 0 else 1
     elif isinstance(config_val, int):
         return config_val
-    return num_feats # Default to all features if config is unclear
+    return num_feats
 
-# Iterate over each parameter to tune
 for param_name, param_values in param_grid.items():
     print(f"\nTuning parameter: {param_name}")
     current_param_results = []
@@ -150,14 +140,12 @@ for param_name, param_values in param_grid.items():
     for value in param_values:
         params = default_params.copy()
 
-        # Handle max_features separately
         if param_name == 'max_features_config':
             params['max_features'] = resolve_max_features(value, n_features)
-            display_value = str(value) # For logging and plotting
+            display_value = str(value)
         else:
             params[param_name] = value
             display_value = str(value)
-            # Ensure default max_features is set if not tuning it
             if 'max_features' not in params:
                  params['max_features'] = resolve_max_features('sqrt', n_features)
 
@@ -192,16 +180,13 @@ for param_name, param_values in param_grid.items():
 
         print(f"    Metrics: {eval_metrics}")
 
-    # Plot for the current parameter
     param_df = pd.DataFrame(current_param_results)
     actual_param_name_for_plot = 'max_features' if param_name == 'max_features_config' else param_name
 
-    # Use 'param_value' for x-axis labels in plots
     plot_path = plot_metrics_vs_param(actual_param_name_for_plot, param_df['param_value'].tolist(), param_df, PLOTS_DIR)
     print(f"    Plot saved to: {plot_path}")
 
 
-# Save all results to a CSV file
 all_results_df = pd.DataFrame(all_results)
 results_csv_path = os.path.join(BASE_RESULTS_DIR, 'parameter_search_results.csv')
 all_results_df.to_csv(results_csv_path, index=False)
