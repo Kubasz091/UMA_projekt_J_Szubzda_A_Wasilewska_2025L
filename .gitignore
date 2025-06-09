@@ -1,9 +1,11 @@
-*.txt
+# *.txt
 !requirements.txt
 *.data
-*.csv
+# *.csv
 latex/*
 !latex/algo_pseudocode.tex
 !latex/main.tex
+!latex/dokumentacja_koncowa.tex
 *.pyc
 .vscode/*
+*.pkl

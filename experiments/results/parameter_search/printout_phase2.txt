@@ -1,0 +1,5 @@
+(.venv) jszubzda@JakubSzubzda:~/UMA_projekt_J_Szubzda_A_Wasilewska_2025L$ /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/.venv/bin/python /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/parameter_search_hand.py
+Loading data: wine_quality_original
+Data loaded: X_train shape (5197, 11), y_train shape (5197,), n_features 11, num_classes 7
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6853846153846154, 'precision': 0.6853838191640984, 'recall': 0.6853846153846154, 'f1_score': 0.6750660153844713, 'roc_auc': np.float64(0.8559920587653014), 'fit_time': 1104.1814386844635, 'resolved_max_features': 11}

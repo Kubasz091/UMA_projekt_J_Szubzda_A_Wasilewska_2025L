@@ -1,0 +1,113 @@
+(.venv) jszubzda@JakubSzubzda:~/UMA_projekt_J_Szubzda_A_Wasilewska_2025L$ /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/.venv/bin/python /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/run_parameter_search.py
+Loading data: wine_quality_original
+Data loaded: X_train shape (5197, 11), y_train shape (5197,), n_features 11, num_classes 7
+
+Tuning parameter: max_features_config
+  Testing max_features_config = sqrt (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 43.52298903465271, 'param_tuned': 'max_features_config', 'param_value': 'sqrt', 'resolved_max_features': 3}
+  Testing max_features_config = 0.3 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.22745895385742, 'param_tuned': 'max_features_config', 'param_value': '0.3', 'resolved_max_features': 3}
+  Testing max_features_config = 0.5 (resolved max_features: 5)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.6080640637697109, 'recall': 0.6169230769230769, 'f1_score': 0.6074632495573832, 'roc_auc': np.float64(0.7733782821604562), 'fit_time': 54.85140585899353, 'param_tuned': 'max_features_config', 'param_value': '0.5', 'resolved_max_features': 5}
+  Testing max_features_config = 1.0 (resolved max_features: 11)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6392307692307693, 'precision': 0.6281362842801399, 'recall': 0.6392307692307693, 'f1_score': 0.6296431769092901, 'roc_auc': np.float64(0.7834062037003107), 'fit_time': 110.19931387901306, 'param_tuned': 'max_features_config', 'param_value': '1.0', 'resolved_max_features': 11}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/max_features_performance.png
+
+Tuning parameter: sample_fraction
+  Testing sample_fraction = 0.5 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.59, 'precision': 0.5894425756430296, 'recall': 0.59, 'f1_score': 0.5801062543517789, 'roc_auc': np.float64(0.7498110187064022), 'fit_time': 33.02506613731384, 'param_tuned': 'sample_fraction', 'param_value': '0.5', 'resolved_max_features': 3}
+  Testing sample_fraction = 0.7 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.099308490753174, 'param_tuned': 'sample_fraction', 'param_value': '0.7', 'resolved_max_features': 3}
+  Testing sample_fraction = 0.9 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6030769230769231, 'precision': 0.603651714586269, 'recall': 0.6030769230769231, 'f1_score': 0.5888666208167971, 'roc_auc': np.float64(0.7569780640773136), 'fit_time': 39.776681423187256, 'param_tuned': 'sample_fraction', 'param_value': '0.9', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/sample_fraction_performance.png
+
+Tuning parameter: n_trees
+  Testing n_trees = 10 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.5692307692307692, 'precision': 0.5664320146468371, 'recall': 0.5692307692307692, 'f1_score': 0.5538056726155045, 'roc_auc': np.float64(0.7397203411821772), 'fit_time': 6.277852296829224, 'param_tuned': 'n_trees', 'param_value': '10', 'resolved_max_features': 3}
+  Testing n_trees = 50 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.01491641998291, 'param_tuned': 'n_trees', 'param_value': '50', 'resolved_max_features': 3}
+  Testing n_trees = 100 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6338461538461538, 'precision': 0.6395409185564023, 'recall': 0.6338461538461538, 'f1_score': 0.6201007074479242, 'roc_auc': np.float64(0.7742478833051801), 'fit_time': 95.46524930000305, 'param_tuned': 'n_trees', 'param_value': '100', 'resolved_max_features': 3}
+  Testing n_trees = 200 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6423076923076924, 'precision': 0.6492404131350341, 'recall': 0.6423076923076924, 'f1_score': 0.6307523294452893, 'roc_auc': np.float64(0.7690369607625895), 'fit_time': 282.8992302417755, 'param_tuned': 'n_trees', 'param_value': '200', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/n_trees_performance.png
+
+Tuning parameter: max_depth
+  Testing max_depth = 5 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.4107692307692308, 'precision': 0.4155012270957089, 'recall': 0.4107692307692308, 'f1_score': 0.40910518618568453, 'roc_auc': np.float64(0.6347206002214555), 'fit_time': 16.24251961708069, 'param_tuned': 'max_depth', 'param_value': '5', 'resolved_max_features': 3}
+  Testing max_depth = 10 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.16016507148743, 'param_tuned': 'max_depth', 'param_value': '10', 'resolved_max_features': 3}
+  Testing max_depth = None (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.66, 'precision': 0.6731838961038961, 'recall': 0.66, 'f1_score': 0.6444293857241834, 'roc_auc': np.float64(0.8311380416315609), 'fit_time': 68.506840467453, 'param_tuned': 'max_depth', 'param_value': 'None', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/max_depth_performance.png
+
+Tuning parameter: prune
+  Testing prune = True (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.4369230769230769, 'precision': 0.519607390300231, 'recall': 0.4369230769230769, 'f1_score': 0.2665930005356174, 'roc_auc': np.float64(0.6682913804846344), 'fit_time': 190.40435576438904, 'param_tuned': 'prune', 'param_value': 'True', 'resolved_max_features': 3}
+  Testing prune = False (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.22258448600769, 'param_tuned': 'prune', 'param_value': 'False', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/prune_performance.png
+
+Tuning parameter: criterion
+  Testing criterion = gini (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.240702629089355, 'param_tuned': 'criterion', 'param_value': 'gini', 'resolved_max_features': 3}
+  Testing criterion = entropy (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6015384615384616, 'precision': 0.6104257493065386, 'recall': 0.6015384615384616, 'f1_score': 0.5856396766312969, 'roc_auc': np.float64(0.7642934582086898), 'fit_time': 39.03707981109619, 'param_tuned': 'criterion', 'param_value': 'entropy', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/criterion_performance.png
+
+Tuning parameter: weighted_voting
+  Testing weighted_voting = True (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6215384615384615, 'precision': 0.6224393634170807, 'recall': 0.6215384615384615, 'f1_score': 0.6089850833442219, 'roc_auc': np.float64(0.7584484699233658), 'fit_time': 38.20410752296448, 'param_tuned': 'weighted_voting', 'param_value': 'True', 'resolved_max_features': 3}
+  Testing weighted_voting = False (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.01207780838013, 'param_tuned': 'weighted_voting', 'param_value': 'False', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/weighted_voting_performance.png
+
+Tuning parameter: error_weight_increase
+  Testing error_weight_increase = 0.0 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.5869230769230769, 'precision': 0.6121062952973642, 'recall': 0.5869230769230769, 'f1_score': 0.5375889461118227, 'roc_auc': np.float64(0.7817348098081303), 'fit_time': 27.026694297790527, 'param_tuned': 'error_weight_increase', 'param_value': '0.0', 'resolved_max_features': 3}
+  Testing error_weight_increase = 0.1 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6307692307692307, 'precision': 0.6292688427091515, 'recall': 0.6307692307692307, 'f1_score': 0.6200051373564379, 'roc_auc': np.float64(0.7896511193508963), 'fit_time': 39.713855266571045, 'param_tuned': 'error_weight_increase', 'param_value': '0.1', 'resolved_max_features': 3}
+  Testing error_weight_increase = 0.3 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 36.96226453781128, 'param_tuned': 'error_weight_increase', 'param_value': '0.3', 'resolved_max_features': 3}
+  Testing error_weight_increase = 0.5 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6046153846153847, 'precision': 0.6004257008367938, 'recall': 0.6046153846153847, 'f1_score': 0.592365363918029, 'roc_auc': np.float64(0.7597228461030691), 'fit_time': 34.278085470199585, 'param_tuned': 'error_weight_increase', 'param_value': '0.5', 'resolved_max_features': 3}
+  Testing error_weight_increase = 1.0 (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.5892307692307692, 'precision': 0.589748868882767, 'recall': 0.5892307692307692, 'f1_score': 0.5731245490156583, 'roc_auc': np.float64(0.7293834771620139), 'fit_time': 30.820382356643677, 'param_tuned': 'error_weight_increase', 'param_value': '1.0', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/error_weight_increase_performance.png
+
+Tuning parameter: weighted_feature_sampling
+  Testing weighted_feature_sampling = True (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6161538461538462, 'precision': 0.6170449543227334, 'recall': 0.6161538461538462, 'f1_score': 0.604838303246425, 'roc_auc': np.float64(0.7490206337121789), 'fit_time': 46.338366746902466, 'param_tuned': 'weighted_feature_sampling', 'param_value': 'True', 'resolved_max_features': 3}
+  Testing weighted_feature_sampling = False (resolved max_features: 3)
+Set up class mapping with 7 classes
+    Metrics: {'accuracy': 0.6169230769230769, 'precision': 0.62110766430107, 'recall': 0.6169230769230769, 'f1_score': 0.6025936091622586, 'roc_auc': np.float64(0.7758487692740795), 'fit_time': 37.231332302093506, 'param_tuned': 'weighted_feature_sampling', 'param_value': 'False', 'resolved_max_features': 3}
+    Plot saved to: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/plots/weighted_feature_sampling_performance.png
+
+All parameter search results saved to /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/parameter_search/parameter_search_results.csv

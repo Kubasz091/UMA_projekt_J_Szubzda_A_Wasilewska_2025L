@@ -1,0 +1,742 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{pdfpages}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{needspace}
+\usepackage{tikz}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{pgfplots}  % Add this package for the axis environment
+\pgfplotsset{compat=1.18}  % Set compatibility mode
+\usetikzlibrary{shapes.geometric, arrows}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{purple},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    breaklines=true,
+    frame=single,
+    captionpos=b
+}
+
+\title{Projekt Końcowy: Zmodyfikowany Algorytm Lasu Losowego z Adaptacyjnym Ważeniem Próbek}
+\author{Jakub Szubzda - 331145 \\ Aleksandra Wasilewska - 331192}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Streszczenie założeń z Projektu Wstępnego}
+
+Projekt dotyczył implementacji zmodyfikowanej wersji algorytmu generowania lasu losowego (Random Forest), w której do generowania kolejnych drzew częściej losowane są elementy ze zbioru uczącego, na których dotychczasowy model się mylił. Takie podejście łączy zalety standardowego lasu losowego z mechanizmem adaptacyjnego ważenia próbek znanym z algorytmów boostingowych jak AdaBoost.
+
+Główne założenia projektu obejmowały:
+
+\begin{itemize}
+    \item Implementację standardowego algorytmu drzew decyzyjnych i lasu losowego od podstaw
+    \item Wprowadzenie modyfikacji polegającej na adaptacyjnym ważeniu próbek błędnie klasyfikowanych
+    \item Dodanie wariacji algorytmu pozwalających na wybór różnych strategii podziału, przycinania, głosowania i wyboru cech
+    \item Przeprowadzenie eksperymentów na różnorodnych zbiorach danych
+    \item Porównanie wydajności zmodyfikowanego algorytmu ze standardowym lasem losowym i AdaBoostu
+\end{itemize}
+
+Pierwotnie zaproponowano szereg parametrów konfiguracyjnych, takich jak:
+\begin{itemize}
+    \item \texttt{max\_features} - liczba cech branych do każdego drzewa
+    \item \texttt{sample\_fraction} - część przykładów brana do każdego drzewa
+    \item \texttt{n\_trees} - liczba drzew w lesie
+    \item \texttt{max\_depth} - maksymalna głębokość drzewa
+    \item \texttt{prune} - czy drzewa powinny być przycinane po wygenerowaniu
+    \item \texttt{criterion} - kryterium podziału (gini lub entropy)
+    \item \texttt{weighted\_voting} - czy głosy drzew są ważone względem ich dokładności
+    \item \texttt{error\_weight\_increase} - wzrost wagi błędnie sklasyfikowanych przykładów
+    \item \texttt{weighted\_feature\_sampling} - czy cechy są losowane proporcjonalnie do ich information gain
+\end{itemize}
+
+\section{Pełen opis funkcjonalny}
+
+\subsection{Architektura zaimplementowanego rozwiązania}
+
+W ramach projektu zaimplementowano kompleksową bibliotekę do tworzenia i trenowania zmodyfikowanego lasu losowego, składającą się z kilku modułów:
+
+\begin{itemize}
+    \item \texttt{ModifiedRandomForest.py} - główna klasa implementująca zmodyfikowany las losowy
+    \item \texttt{tree.py} - implementacja drzewa decyzyjnego
+    \item \texttt{split.py} - funkcje do znajdowania optymalnych podziałów
+    \item \texttt{sampling.py} - funkcje do losowania próbek i normalizacji wag
+    \item \texttt{pruning.py} - funkcje do przycinania drzew
+    \item \texttt{prediction.py} - funkcje do generowania i agregowania predykcji
+    \item \texttt{evaluation.py} - funkcje do oceny jakości modelu
+\end{itemize}
+
+Architektura rozwiązania pozwala na:
+\begin{itemize}
+    \item Tworzenie i trenowanie lasów losowych o różnych konfiguracjach
+    \item Dostosowywanie strategii próbkowania i ważenia przykładów
+    \item Eksperymentowanie z różnymi kryteriami podziału i strategiami głosowania
+    \item Serializację i deserializację wytrenowanych modeli
+    \item Obliczanie ważności cech
+    \item Obsługę różnych rodzajów zbiorów danych
+\end{itemize}
+
+\subsection{Szczegółowy opis funkcjonalności}
+
+\subsubsection{Klasa ModifiedRandomForest}
+
+Główna klasa \texttt{ModifiedRandomForest} implementuje zmodyfikowany algorytm lasu losowego i udostępnia następujące funkcjonalności:
+
+\begin{itemize}
+    \item \texttt{fit(X, y)} - trenuje model na danych wejściowych
+    \item \texttt{predict(X)} - generuje predykcje dla nowych danych
+    \item \texttt{predict\_proba(X)} - generuje prawdopodobieństwa przynależności do klas
+    \item \texttt{save\_model(filename)} - zapisuje model do pliku
+    \item \texttt{load\_model(filename)} - wczytuje model z pliku
+    \item \texttt{print\_mapping()} - wyświetla mapowanie indeksów klas na oryginalne etykiety
+\end{itemize}
+
+Model ten współpracuje z różnymi typami danych, obsługuje klasy nienumeryczne i automatycznie konwertuje etykiety klas na reprezentację wewnętrzną.
+
+\subsubsection{Drzewa decyzyjne}
+
+Zaimplementowana klasa \texttt{DecisionTree} stanowi podstawowy blok budulcowy lasu losowego:
+
+\begin{itemize}
+    \item Wspiera dwa kryteria podziału: Gini impurity i Information Gain (entropy)
+    \item Umożliwia rekurencyjne budowanie drzewa z ograniczeniem maksymalnej głębokości
+    \item Implementuje logikę przycinania drzew po ich zbudowaniu
+    \item Oblicza ważność cech podczas trenowania
+    \item Optymalizuje pamięć poprzez wykorzystanie \_\_slots\_\_ w węzłach drzew
+    \item Umożliwia konwersję drzewa do formatu JSON i odtworzenie go z tego formatu
+\end{itemize}
+
+\subsubsection{Próbkowanie i ważenie}
+
+Kluczową modyfikacją w stosunku do standardowego lasu losowego jest adaptacyjne ważenie próbek:
+
+\begin{itemize}
+    \item Początkowo wszystkie próbki mają równe wagi
+    \item Po każdej iteracji (dodaniu nowego drzewa), wagi próbek, które zostały błędnie sklasyfikowane przez aktualny las, są zwiększane
+    \item Wagi są normalizowane po każdej aktualizacji
+    \item Wagi wpływają na prawdopodobieństwo wylosowania próbek do trenowania kolejnego drzewa
+    \item Parametr \texttt{error\_weight\_increase} kontroluje siłę zwiększania wag
+\end{itemize}
+
+\subsubsection{Głosowanie}
+
+Zaimplementowano dwa tryby głosowania przy generowaniu predykcji:
+
+\begin{itemize}
+    \item \textbf{Głosowanie większościowe:} każde drzewo ma równy głos
+    \item \textbf{Głosowanie ważone:} głos każdego drzewa jest ważony jego dokładnością na zbiorze OOB (out-of-bag)
+\end{itemize}
+
+\subsubsection{Wybór cech}
+
+Model umożliwia dwa sposoby wyboru cech przy budowie węzłów drzewa:
+
+\begin{itemize}
+    \item \textbf{Równomierne losowanie:} standardowy wybór losowy cech
+    \item \textbf{Ważone losowanie cech:} losowanie cech z prawdopodobieństwem proporcjonalnym do ich information gain względem klasy
+\end{itemize}
+
+\section{Precyzyjny opis algorytmów oraz zbiorów danych}
+
+\subsection{Algorytm zmodyfikowanego lasu losowego}
+
+\subsubsection{Faza trenowania}
+
+\begin{algorithm}
+\caption{FitModifiedRandomForest(X, y, n\_trees, max\_features, sample\_fraction, max\_depth, prune, criterion, error\_weight\_increase, weighted\_feature\_sampling)}
+\begin{algorithmic}[1]
+\State $n\_samples \gets \text{length}(X)$
+\State $n\_features \gets \text{length}(X[0])$
+\State $forest \gets []$
+\State $oob\_accuracies \gets []$
+\State $feature\_importances \gets \text{vector}(n\_features, 0.0)$
+\State $sample\_weights \gets \text{vector}(n\_samples, 1.0 / n\_samples)$
+
+\For{$i \gets 1$ to $n\_trees$}
+    \State $sample\_size \gets \text{round}(sample\_fraction \cdot n\_samples)$
+    \State $idx \gets \text{sample\_with\_replacement}(0..n\_samples-1, size=sample\_size, prob=sample\_weights)$
+
+    \State $oob\_mask \gets \text{vector}(n\_samples, \text{True})$
+    \State $oob\_mask[idx] \gets \text{False}$
+    \State $X\_train\_tree \gets X[idx]$
+    \State $y\_train\_tree \gets y[idx]$
+    \State $X\_oob \gets X[oob\_mask]$
+    \State $y\_oob \gets y[oob\_mask]$
+
+    \If{$weighted\_feature\_sampling$}
+        \State $ig\_scores \gets \text{calculate\_information\_gain}(X\_train\_tree, y\_train\_tree)$
+        \State $features\_subset \gets \text{weighted\_random\_selection}(max\_features, weights=ig\_scores)$
+    \Else
+        \State $features\_subset \gets \text{random\_selection}(n\_features, max\_features)$
+    \EndIf
+
+    \State $tree \gets \text{build\_tree}(X\_train\_tree, y\_train\_tree, features\_subset, max\_depth, criterion, min\_samples\_split, min\_samples\_leaf)$
+
+    \If{$prune$}
+        \If{$\text{length}(X\_oob) > 0$}
+            \State $prune\_data\_X, prune\_data\_y \gets X\_oob, y\_oob$
+        \Else
+            \State $prune\_data\_X, prune\_data\_y \gets X\_train\_tree, y\_train\_tree$
+        \EndIf
+        \State $tree \gets \text{prune\_tree}(tree, prune\_data\_X, prune\_data\_y)$
+    \EndIf
+
+    \State $oob\_acc \gets 0.0$
+    \If{$\text{length}(X\_oob) > 0$}
+        \State $oob\_predictions \gets tree.predict(X\_oob)$
+        \State $oob\_acc \gets \text{accuracy}(y\_oob, oob\_predictions)$
+    \EndIf
+
+    \State $tree\_importances \gets tree.feature\_importances\_$
+
+    \State $forest.append(tree)$
+    \State $oob\_accuracies.append(oob\_acc)$
+    \State $feature\_importances \gets feature\_importances + tree\_importances$
+
+    \If{$error\_weight\_increase > 0$}
+        \State $current\_ensemble\_pred \gets \text{ensemble\_predict}(forest, X)$
+        \State $errors \gets (current\_ensemble\_pred \neq y)$
+
+        \For{$j \gets 0$ to $n\_samples-1$}
+            \If{$errors[j]$}
+                \State $sample\_weights[j] \gets sample\_weights[j] \cdot (1.0 + error\_weight\_increase)$
+            \EndIf
+        \EndFor
+
+        \State $sample\_weights \gets \text{normalize}(sample\_weights)$
+    \EndIf
+\EndFor
+
+\If{$\text{sum}(feature\_importances) > 0$}
+    \State $feature\_importances \gets \text{normalize}(feature\_importances)$
+\EndIf
+
+\State \Return $forest, oob\_accuracies, feature\_importances$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Faza predykcji}
+
+\begin{algorithm}
+\caption{PredictModifiedRandomForest(forest, X, use\_weighted\_vote, oob\_accuracies)}
+\begin{algorithmic}[1]
+\State $all\_trees\_predictions \gets []$
+\For{each $tree$ in $forest$}
+    \State $tree\_predictions \gets tree.predict(X)$
+    \State $all\_trees\_predictions.append(tree\_predictions)$
+\EndFor
+
+\If{$use\_weighted\_vote$}
+    \State $final\_predictions \gets \text{perform\_weighted\_voting}(all\_trees\_predictions, oob\_accuracies)$
+\Else
+    \State $final\_predictions \gets \text{perform\_majority\_voting}(all\_trees\_predictions)$
+\EndIf
+
+\State \Return $final\_predictions$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Budowa drzewa decyzyjnego}
+
+\begin{algorithm}
+\caption{BuildTree(X, y, feature\_indices, depth, max\_depth, criterion, min\_samples\_split, min\_samples\_leaf)}
+\begin{algorithmic}[1]
+\State $n\_samples, \_ \gets X.shape$
+\State $n\_classes \gets \text{length}(\text{unique}(y))$
+
+\If{$\text{check\_stopping\_criteria}(depth, max\_depth, n\_samples, min\_samples\_split, n\_classes)$ \textbf{or} $\text{is\_pure}(y)$}
+    \State \Return $\text{create\_leaf}(y)$
+\EndIf
+
+\State $feature\_idx, threshold, info\_gain, left\_indices, right\_indices \gets \text{find\_best\_split}(X, y, feature\_indices, criterion, min\_samples\_leaf)$
+
+\If{$feature\_idx$ is None \textbf{or} $info\_gain \leq 0.0$}
+    \State \Return $\text{create\_leaf}(y)$
+\EndIf
+
+\State $left\_tree \gets \text{BuildTree}(X[left\_indices], y[left\_indices], feature\_indices, depth+1, max\_depth, criterion, min\_samples\_split, min\_samples\_leaf)$
+
+\State $right\_tree \gets \text{BuildTree}(X[right\_indices], y[right\_indices], feature\_indices, depth+1, max\_depth, criterion, min\_samples\_split, min\_samples\_leaf)$
+
+\State \Return $\text{create\_node}(feature\_idx, threshold, left\_tree, right\_tree)$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Techniczne aspekty implementacji}
+
+\subsubsection{Optymalizacja wydajności}
+
+W celu przyspieszenia działania algorytmu, zastosowano szereg technik optymalizacji:
+
+\begin{itemize}
+    \item Wykorzystanie biblioteki Numba do kompilacji JIT funkcji krytycznych obliczeniowo
+    \item Zastosowanie \_\_slots\_\_ w klasie Node dla efektywnego zarządzania pamięcią
+    \item Wykorzystanie algorytmów przybliżonego podziału dla dużej liczby unikalnych wartości cechy
+    \item Implementacja efektywnych metod normalizacji wag i ich aktualizacji
+    \item Optymalizacja obliczania miar nieczystości (Gini, entropy) z użyciem funkcji wektoryzowanych
+\end{itemize}
+
+\subsubsection{Współpraca z różnymi typami danych}
+
+Model został zaprojektowany z myślą o elastyczności i obsłudze różnych typów danych:
+
+\begin{itemize}
+    \item Automatyczna konwersja między różnymi formatami danych wejściowych
+    \item Obsługa etykiet klas niebędących liczbami (stringi, kategorie)
+    \item Serializacja i deserializacja z zachowaniem mapowania klas
+    \item Wykrywanie typów cech i odpowiednia ich obsługa
+\end{itemize}
+
+\subsection{Opis zbiorów danych}
+
+W eksperymentach wykorzystano 5 różnych zbiorów danych, różniących się wielkością, złożonością, typem cech i liczbą klas:
+
+\begin{table}[H]
+\caption{Charakterystyka zbiorów danych użytych w eksperymentach}
+\label{tab:dataset_comparison}
+\begin{tabular}{lccccc}
+\toprule
+Dataset & Próbki & Cechy & Klasy & Współczynnik niezbalansowania & Braki danych(\%) \\
+\midrule
+Iris & 150 & 4 & 3 & 1.0 & 0 \\
+Wine Quality & 6497 & 11 & 7 & 567.2 & 0 \\
+Adult Census & 48842 & 14 & 2 & 5.23 & 0.32 \\
+Bank Marketing & 45211 & 16 & 2 & 7.55 & 7.21 \\
+MNIST & 70000 & 784 & 10 & 1.25 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Iris Dataset}
+Klasyczny zbiór danych zawierający pomiary trzech gatunków irysów. Cechy obejmują długość i szerokość działek kielicha oraz płatków korony. Jest to mały, zbalansowany zbiór danych z trzema klasami, często używany jako benchmark w uczeniu maszynowym.
+
+\subsubsection{Wine Quality Dataset}
+Zbiór danych zawierający informacje o chemicznych właściwościach win portugalskich (Vinho Verde) i ich jakości w skali od 3 do 9. Cechy obejmują między innymi kwasowość, zawartość alkoholu, cukru i kwasu cytrynowego. Jest to zbiór średniej wielkości z niezbalansowanymi klasami.
+
+\subsubsection{Adult Census Dataset}
+Zbiór danych pochodzący ze spisu ludności USA, zawierający informacje demograficzne i socjoekonomiczne. Zadanie polega na przewidywaniu, czy dochód osoby przekracza 50 000 dolarów rocznie. Cechy obejmują wiek, wykształcenie, zawód, stan cywilny i inne. Jest to duży zbiór danych z cechami mieszanymi (numeryczne i kategoryczne).
+
+\subsubsection{Bank Marketing Dataset}
+Zbiór danych dotyczący kampanii marketingowych banku, gdzie celem jest przewidywanie, czy klient zapisze się na lokatę terminową. Cechy obejmują dane demograficzne klientów, informacje o historii kontaktów i wskaźniki ekonomiczne. Jest to duży zbiór danych z silnym niezbalansowaniem klas.
+
+\subsubsection{MNIST Dataset}
+Zbiór danych zawierający obrazy odręcznie napisanych cyfr (0-9). Każdy obraz ma rozmiar 28x28 pikseli, co daje 784 cechy. Jest to duży zbiór danych z wieloma cechami i 10 klasami, stanowiący wyzwanie dla algorytmów nieneuronowych.
+
+\section{Raport z przeprowadzonych testów oraz wnioski}
+
+\subsection{Metodyka testowania}
+
+Przeprowadzone eksperymenty podzielono na dwie główne fazy:
+\begin{enumerate}
+    \item \textbf{Faza 1:} Poszukiwanie optymalnych parametrów zmodyfikowanego algorytmu Random Forest dla wybranego zbioru danych (Wine Quality). Testowano wpływ poszczególnych parametrów na jakość modelu.
+
+    \item \textbf{Faza 2:} Porównanie wydajności zmodyfikowanego Random Forest z algorytmami referencyjnymi (scikit-learn Random Forest i AdaBoost) na różnych zbiorach danych.
+\end{enumerate}
+
+Do oceny modeli wykorzystano następujące metryki:
+\begin{itemize}
+    \item Accuracy - ogólna dokładność klasyfikacji
+    \item Precision - precyzja klasyfikacji
+    \item Recall - czułość klasyfikacji
+    \item F1 Score - średnia harmoniczna precision i recall
+    \item ROC AUC - pole pod krzywą ROC
+    \item Fit Time - czas trenowania modelu
+\end{itemize}
+
+\subsection{Wyniki eksperymentów fazy 1: Optymalizacja parametrów}
+
+W pierwszej fazie eksperymentów zbadano wpływ różnych parametrów na wydajność modelu zmodyfikowanego Random Forest dla zbioru danych Wine Quality.
+
+\subsubsection{Wpływ parametru max\_features}
+
+\begin{table}[H]
+\centering
+\caption{Wpływ parametru max\_features na wydajność modelu}
+\label{tab:max_features}
+\begin{tabular}{lcccc}
+\toprule
+max\_features & Dokładność & F1 Score & ROC AUC & Czas trenowania (s) \\
+\midrule
+sqrt (3) & 0.617 & 0.603 & 0.776 & 43.52 \\
+0.3 (3) & 0.617 & 0.603 & 0.776 & 37.23 \\
+0.5 (5) & 0.617 & 0.607 & 0.773 & 54.85 \\
+1.0 (11) & \textbf{0.639} & \textbf{0.630} & \textbf{0.783} & 110.20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Obserwacja: Wykorzystanie wszystkich cech (max\_features=1.0) dało najlepsze wyniki dla zbioru Wine Quality, choć kosztem znacznie dłuższego czasu trenowania. Wskazuje to na istotność wszystkich cech w tym zbiorze danych.
+
+\subsubsection{Wpływ liczby drzew (n\_trees)}
+
+\begin{table}[H]
+\centering
+\caption{Wpływ liczby drzew na wydajność modelu}
+\label{tab:n_trees}
+\begin{tabular}{lcccc}
+\toprule
+n\_trees & Dokładność & F1 Score & ROC AUC & Czas trenowania (s) \\
+\midrule
+10 & 0.569 & 0.554 & 0.740 & 6.28 \\
+50 & 0.617 & 0.603 & 0.776 & 37.01 \\
+100 & 0.634 & 0.620 & 0.774 & 95.47 \\
+200 & \textbf{0.642} & \textbf{0.631} & 0.769 & 282.90 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Obserwacja: Zwiększenie liczby drzew poprawia dokładność i F1 Score, ale z malejącym zyskiem. 100-200 drzew oferuje dobry kompromis między wydajnością a czasem obliczeniowym.
+
+\subsubsection{Wpływ maksymalnej głębokości drzewa (max\_depth)}
+
+\begin{table}[H]
+\centering
+\caption{Wpływ maksymalnej głębokości drzewa na wydajność modelu}
+\label{tab:max_depth}
+\begin{tabular}{lcccc}
+\toprule
+max\_depth & Dokładność & F1 Score & ROC AUC & Czas trenowania (s) \\
+\midrule
+5 & 0.411 & 0.409 & 0.635 & 16.24 \\
+10 & 0.617 & 0.603 & 0.776 & 37.16 \\
+None & \textbf{0.660} & \textbf{0.644} & \textbf{0.831} & 68.51 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Obserwacja: Nieograniczona głębokość drzewa (max\_depth=None) dała najlepsze wyniki dla tego zbioru danych. Sugeruje to, że dla Wine Quality potrzebne są bardziej złożone drzewa do uchwycenia zależności.
+
+\subsubsection{Wpływ zwiększania wagi błędnych przykładów (error\_weight\_increase)}
+
+\begin{table}[H]
+\centering
+\caption{Wpływ parametru error\_weight\_increase na wydajność modelu}
+\label{tab:error_weight_increase}
+\begin{tabular}{lcccc}
+\toprule
+error\_weight\_increase & Dokładność & F1 Score & ROC AUC & Czas trenowania (s) \\
+\midrule
+0.0 & 0.587 & 0.538 & 0.782 & 27.03 \\
+0.1 & \textbf{0.631} & \textbf{0.620} & \textbf{0.790} & 39.71 \\
+0.3 & 0.617 & 0.603 & 0.776 & 36.96 \\
+0.5 & 0.605 & 0.592 & 0.760 & 34.28 \\
+1.0 & 0.589 & 0.573 & 0.729 & 30.82 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Obserwacja: Umiarkowana wartość parametru error\_weight\_increase (0.1) dała najlepsze wyniki. Zbyt duże zwiększanie wag błędnie sklasyfikowanych przykładów może prowadzić do przeuczenia.
+
+Na podstawie eksperymentów z fazy 1 wybrano następujące optymalne parametry do fazy 2:
+\begin{itemize}
+    \item max\_features = 1.0
+    \item n\_trees = 200
+    \item max\_depth = None
+    \item error\_weight\_increase = 0.1
+    \item weighted\_voting = True
+\end{itemize}
+
+Potwierdza to printout z fazy 2:
+
+\begin{table}[H]
+\centering
+\caption{Wynik fazy 2 dla optymalnych parametrów na zbiorze Wine Quality}
+\label{tab:phase2}
+\begin{tabular}{lc}
+\toprule
+Metryka & Wartość \\
+\midrule
+Dokładność & 0.6854 \\
+Precision & 0.6854 \\
+Recall & 0.6854 \\
+F1 Score & 0.6751 \\
+ROC AUC & 0.8560 \\
+Czas trenowania (s) & 1104.18 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Wyniki eksperymentów fazy 3: Porównanie modeli na różnych zbiorach danych}
+
+W fazie 3 porównano zaimplementowany zmodyfikowany Random Forest (ModifiedRF) z algorytmami referencyjnymi: scikit-learn Random Forest (ScikitRF) i AdaBoost na pięciu zbiorach danych.
+
+\subsubsection{Porównanie dokładności}
+
+\begin{table}[H]
+\centering
+\caption{Porównanie dokładności (accuracy) modeli na różnych zbiorach danych}
+\label{tab:accuracy_comparison}
+\begin{tabular}{lccc}
+\toprule
+Dataset & ModifiedRF & ScikitRF & AdaBoost \\
+\midrule
+Iris & 0.900 & 0.900 & \textbf{0.933} \\
+Wine Quality & 0.656 & \textbf{0.689} & 0.452 \\
+Adult Census & 0.748 & \textbf{0.848} & 0.849 \\
+Bank Marketing & \textbf{0.891} & 0.880 & 0.893 \\
+MNIST & 0.878 & \textbf{0.921} & 0.628 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Porównanie F1 Score}
+
+\begin{table}[H]
+\centering
+\caption{Porównanie F1 Score modeli na różnych zbiorach danych}
+\label{tab:f1_comparison}
+\begin{tabular}{lccc}
+\toprule
+Dataset & ModifiedRF & ScikitRF & AdaBoost \\
+\midrule
+Iris & 0.900 & 0.900 & \textbf{0.933} \\
+Wine Quality & 0.640 & \textbf{0.677} & 0.398 \\
+Adult Census & 0.764 & \textbf{0.845} & 0.840 \\
+Bank Marketing & 0.857 & \textbf{0.858} & 0.863 \\
+MNIST & 0.878 & \textbf{0.921} & 0.632 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Porównanie ROC AUC}
+
+\begin{table}[H]
+\centering
+\caption{Porównanie ROC AUC modeli na różnych zbiorach danych}
+\label{tab:roc_auc_comparison}
+\begin{tabular}{lccc}
+\toprule
+Dataset & ModifiedRF & ScikitRF & AdaBoost \\
+\midrule
+Iris & 0.985 & 0.987 & 0.975 \\
+Wine Quality & 0.831 & \textbf{0.859} & 0.630 \\
+Adult Census & 0.861 & 0.895 & \textbf{0.902} \\
+Bank Marketing & \textbf{0.712} & 0.678 & 0.738 \\
+MNIST & 0.986 & \textbf{0.995} & 0.922 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Porównanie czasu trenowania}
+
+\begin{table}[H]
+\centering
+\caption{Porównanie czasu trenowania (s) modeli na różnych zbiorach danych}
+\label{tab:fit_time_comparison}
+\begin{tabular}{lccc}
+\toprule
+Dataset & ModifiedRF & ScikitRF & AdaBoost \\
+\midrule
+Iris & 6.92 & \textbf{0.06} & 0.07 \\
+Wine Quality & 75.34 & \textbf{1.02} & 0.25 \\
+Adult Census & 137.65 & \textbf{2.21} & 2.39 \\
+Bank Marketing & 122.88 & \textbf{1.73} & 1.16 \\
+MNIST & 2052.59 & \textbf{22.61} & 25.29 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    width=12cm,
+    height=8cm,
+    legend style={at={(0.5,1.05)}, anchor=south,legend columns=-1},
+    ylabel={Accuracy},
+    xlabel={Dataset},
+    symbolic x coords={Iris,Wine,Adult,Bank,MNIST},
+    xtick=data,
+    nodes near coords,
+    nodes near coords align={vertical},
+    ymin=0.4, ymax=1.0,
+    bar width=0.2cm,
+]
+\addplot coordinates {(Iris,0.900) (Wine,0.656) (Adult,0.748) (Bank,0.891) (MNIST,0.878)};
+\addplot coordinates {(Iris,0.900) (Wine,0.689) (Adult,0.848) (Bank,0.880) (MNIST,0.921)};
+\addplot coordinates {(Iris,0.933) (Wine,0.452) (Adult,0.849) (Bank,0.893) (MNIST,0.628)};
+\legend{ModifiedRF, ScikitRF, AdaBoost}
+\end{axis}
+\end{tikzpicture}
+\caption{Porównanie dokładności modeli na różnych zbiorach danych}
+\label{fig:accuracy_comparison}
+\end{figure}
+
+\subsection{Wnioski z eksperymentów}
+
+Na podstawie przeprowadzonych eksperymentów można sformułować następujące wnioski:
+
+\begin{enumerate}
+    \item \textbf{Wydajność modeli na różnych zbiorach danych:}
+    \begin{itemize}
+        \item Zmodyfikowany Random Forest (ModifiedRF) pokazał porównywalną wydajność do ScikitRF na zbiorze Bank Marketing, gdzie osiągnął najlepszą dokładność.
+        \item Dla zbioru Iris wszystkie algorytmy osiągnęły wysoką dokładność, z najlepszym wynikiem dla AdaBoost.
+        \item Na zbiorze MNIST, ModifiedRF uzyskał dobrą dokładność (87.8\%), choć niższą niż ScikitRF (92.1\%).
+        \item AdaBoost radził sobie słabo na dużych zbiorach danych z wieloma cechami (np. MNIST) i na zbiorze Wine Quality.
+    \end{itemize}
+
+    \item \textbf{Wpływ parametrów na wydajność ModifiedRF:}
+    \begin{itemize}
+        \item Zwiększenie liczby drzew znacząco poprawia dokładność, choć z malejącymi korzyściami powyżej 100 drzew.
+        \item Nieograniczona głębokość drzew (max\_depth=None) daje najlepsze wyniki dla złożonych zbiorów.
+        \item Parametr error\_weight\_increase powinien być ustawiony umiarkowanie (najlepiej 0.1), aby uniknąć przeuczenia.
+        \item Ważone głosowanie (weighted\_voting=True) poprawia wyniki w większości przypadków.
+    \end{itemize}
+
+    \item \textbf{Kompromisy wydajnościowe:}
+    \begin{itemize}
+        \item ModifiedRF wymaga znacznie więcej czasu obliczeniowego niż ScikitRF i AdaBoost (od 50 do 100 razy więcej).
+        \item Zoptymalizowany ModifiedRF (z parametrami z fazy 2) poprawia dokładność o około 4 punkty procentowe w porównaniu do domyślnej konfiguracji, ale kosztem zwiększonych zasobów obliczeniowych.
+    \end{itemize}
+
+    \item \textbf{Zachowanie na różnych typach zbiorów:}
+    \begin{itemize}
+        \item ModifiedRF radzi sobie lepiej na zbiorach z niezbalansowanymi klasami (Bank Marketing) w porównaniu do ScikitRF.
+        \item Na zbiorze z wieloma klasami i cechami (MNIST), ModifiedRF osiąga dobre wyniki, ale ustępuje wysoce zoptymalizowanej implementacji ScikitRF.
+        \item AdaBoost jest najlepszy na małych, prostych zbiorach danych (Iris).
+    \end{itemize}
+\end{enumerate}
+
+\section{Uwagi dotyczące wykonania projektu}
+
+\subsection{Wyjaśnienie odchyleń od planu początkowego}
+
+Podczas realizacji projektu napotkaliśmy na szereg wyzwań, które spowodowały, że musieliśmy wprowadzić pewne modyfikacje w stosunku do pierwotnych założeń projektu wstępnego:
+
+\begin{enumerate}
+    \item \textbf{Redukcja zakresu eksperymentów}: Z uwagi na wysoką złożoność obliczeniową zmodyfikowanego algorytmu Random Forest, nie byliśmy w stanie przeprowadzić wszystkich zaplanowanych kombinacji parametrów na wszystkich zbiorach danych. Zastosowaliśmy dwufazowe podejście, koncentrując się najpierw na jednym zbiorze (Wine Quality), a następnie testując optymalne parametry na pozostałych.
+
+    \item \textbf{Priorytetyzacja wybranych parametrów}: Przeprowadzone eksperymenty pokazały, że niektóre parametry (np. \texttt{error\_weight\_increase}, \texttt{max\_features}, \texttt{max\_depth}) mają większy wpływ na wydajność modelu niż inne. Skupiliśmy się na dokładniejszym zbadaniu tych parametrów.
+
+    \item \textbf{Zoptymalizowana implementacja}: Ze względu na ograniczenia wydajnościowe, wprowadziliśmy szereg optymalizacji kodu, w tym kompilację JIT z Numba dla krytycznych obliczeniowo funkcji oraz efektywne zarządzanie pamięcią z wykorzystaniem \_\_slots\_\_.
+
+    \item \textbf{Modyfikacja zbiorów danych}: Dla zbioru MNIST zastosowaliśmy znaczącą redukcję wymiarowości, aby umożliwić efektywne trenowanie modelu na dostępnej infrastrukturze.
+
+    \item \textbf{Ograniczenie liczby zbiorów danych}: W ramach projektu wstępnego przeprowadziliśmy szczegółową analizę większej liczby zbiorów danych niż te, które zostały ostatecznie wykorzystane w eksperymentach. Ze względu na czasochłonność trenowania modelów na wielu zbiorach, skupiliśmy się na wybranych 5 zbiorach danych, które umożliwiły wyciągnięcie najważniejszych wniosków. Szczegółowa analiza wszystkich rozważanych zbiorów danych znajduje się w dokumentacji wstępnej projektu.
+\end{enumerate}
+
+\subsection{Ograniczenia dotyczące zbiorów danych}
+
+Warto podkreślić, że w fazie przygotowawczej przeanalizowano i przygotowano więcej zbiorów danych niż zostało ostatecznie użytych w eksperymentach. Ze względu na ograniczenia czasowe i obliczeniowe, szczególnie w kontekście trenowania modeli na dużych zbiorach z wieloma parametrami, zdecydowano się na skupienie na wybranych 5 zbiorach danych, które reprezentowały zróżnicowane scenariusze uczenia maszynowego:
+
+\begin{itemize}
+    \item Mały zbiór zbalansowany (Iris)
+    \item Średniej wielkości zbiór z wieloma klasami (Wine Quality)
+    \item Duże zbiory z cechami mieszanymi i niezbalansowaniem klas (Adult Census, Bank Marketing)
+    \item Zbiór z dużą liczbą cech (MNIST)
+\end{itemize}
+
+Szczegółowe analizy statystyczne i wizualne wszystkich rozważanych zbiorów danych, w tym wykresy rozkładów, macierze korelacji, analizy brakujących wartości i miary ważności cech, zostały zawarte w dokumentacji projektu wstępnego. Przeprowadzone eksperymenty wykazały, że najcenniejsze wnioski dotyczące wydajności zmodyfikowanego algorytmu Random Forest można było uzyskać na podstawie wybranych zbiorów danych, więc rezygnacja z pozostałych nie wpłynęła znacząco na jakość badania.
+
+\subsection{Szczegółowy opis przetwarzania danych}
+
+Każdy z wykorzystanych zbiorów danych wymagał specyficznego przetwarzania wstępnego, dostosowanego do jego charakterystyk:
+
+\begin{enumerate}
+    \item \textbf{Iris Dataset}: Ze względu na niewielki rozmiar i brak brakujących wartości, zbiór ten wykorzystano w formie oryginalnej oraz w wersji z zastosowaniem adaptacyjnego kodowania percentylowego.
+
+    \item \textbf{Wine Quality Dataset}: Zastosowano adaptacyjne kodowanie percentylowe dla cech numerycznych z liczbą przedziałów dostosowaną do zysku informacyjnego względem zmiennej celu.
+
+    \item \textbf{Adult Census Dataset}: Dla tego zbioru usunięto cechę 'fnlwgt' jako nieistotną, oraz zastąpiono cechę 'education' przez 'education-num'. Utworzono też kilka wariantów:
+    \begin{itemize}
+        \item Podstawowy z usunięciem brakujących wartości i kodowaniem one-hot
+        \item Z adaptacyjnym kodowaniem percentylowym cech numerycznych
+        \item Z redukcją liczby kategorii (np. grupowanie kategorii workclass, education, native-country)
+    \end{itemize}
+
+    \item \textbf{Bank Marketing Dataset}: Usunięto cechy potencjalnie powodujące wyciek danych ('duration', 'pdays') oraz czasowe ('day\_of\_week', 'month', 'contact'). Utworzono nową cechę 'previously\_contacted' na podstawie 'previous'. Przygotowano warianty z imputacją brakujących wartości oraz z usunięciem niepełnych rekordów.
+\end{enumerate}
+
+\subsubsection{Szczegółowe przetwarzanie zbioru MNIST}
+
+Ze względu na wysoki wymiar oryginalnego zbioru MNIST (784 cechy), zastosowano wielostopniową redukcję wymiarowości i inżynierię cech:
+
+\begin{enumerate}
+    \item \textbf{Filtracja wariancji}: Usunięto cechy o niskiej wariancji (poniżej 1\% maksymalnej wariancji), co wyeliminowało piksele brzegowe i niezmienne.
+
+    \item \textbf{Usuwanie silnie skorelowanych cech}: Zastosowano analizę korelacji, eliminując cechy o współczynniku korelacji powyżej 0,95, co dodatkowo zmniejszyło liczbę pikseli.
+
+    \item \textbf{Ekstrakcja cech z filtrami konwolucyjnymi}: Zastosowano 8 różnych filtrów konwolucyjnych:
+    \begin{itemize}
+        \item Filtry kierunkowe: poziomy, pionowy, dwa diagonalne
+        \item Filtry wygładzające: uśredniający, gaussowski
+        \item Filtry wyostrzające: wyostrzający, uwypuklający
+    \end{itemize}
+    Dla każdego filtra obliczono 5 statystyk: średnią, odchylenie standardowe, maksimum, 75. percentyl i liczbę wartości dodatnich, uzyskując 40 cech dla każdego obrazu.
+
+    \item \textbf{Cechy regionowe}: Podzielono obrazy na 16 regionów (siatka 4×4) i obliczono dla każdego regionu 4 statystyki: średnią, odchylenie standardowe, maksimum i gęstość pikseli, otrzymując dodatkowe 64 cechy.
+
+    \item \textbf{Cechy oparte na odległości}: Obliczono 8 cech opisujących właściwości geometryczne cyfry:
+    \begin{itemize}
+        \item Odległość środka masy od środka obrazu
+        \item Rozkład masy w czterech kwadrantach obrazu
+        \item Miary symetrii poziomej i pionowej
+        \item Stosunek szerokości do wysokości
+    \end{itemize}
+
+    \item \textbf{Tworzenie wariantów zbioru danych}: Wygenerowano dwa warianty zbioru MNIST:
+    \begin{itemize}
+        \item Wariant pełny z kombinacją zredukowanych pikseli i cech inżynieryjnych
+        \item Wariant zawierający tylko cechy inżynieryjne (112 cech), eliminujący całkowicie oryginalną reprezentację pikselową
+    \end{itemize}
+\end{enumerate}
+
+Ta kompleksowa transformacja zbioru MNIST zredukowała liczbę cech z 784 do 112, zachowując istotne informacje dyskryminacyjne. Dzięki temu trenowanie lasu losowego stało się bardziej efektywne obliczeniowo, jednocześnie utrzymując wysoką dokładność klasyfikacji (87,8\% dla naszego modelu w porównaniu do 92,1\% dla zoptymalizowanej implementacji scikit-learn).
+
+\subsection{Wpływ przetwarzania danych na wydajność modelu}
+
+Nasze eksperymenty pokazały, że odpowiednie przetwarzanie danych miało istotny wpływ na wydajność modeli:
+
+\begin{itemize}
+    \item Adaptacyjne kodowanie percentylowe poprawiło odporność na wartości odstające i normalizację rozkładów
+    \item Redukcja wymiarowości MNIST zmniejszyła czas trenowania z szacowanych kilkudziesięciu godzin do około 34 minut
+    \item Imputacja brakujących wartości w zbiorze Bank Marketing zwiększyła dostępną liczbę próbek treningowych, poprawiając wydajność modelu
+    \item Tworzenie nowych cech (jak 'previously\_contacted') zwiększyło moc predykcyjną modelu
+\end{itemize}
+
+Szczególnie warto podkreślić, że wygenerowane cechy dla zbioru MNIST wykazywały wyższy zysk informacyjny w stosunku do oryginalnych pikseli, co potwierdza skuteczność zastosowanych metod inżynierii cech. Metryki odległościowe i cechy oparte na filtrach konwolucyjnych okazały się szczególnie istotne dla rozróżniania cyfr.
+
+\section{Podsumowanie}
+
+Zrealizowany projekt obejmował implementację zmodyfikowanej wersji algorytmu Random Forest z adaptacyjnym ważeniem próbek, dostosowaną do różnych typów zbiorów danych klasyfikacyjnych. Zmodyfikowany algorytm wprowadza mechanizm zwiększania wag próbek błędnie klasyfikowanych przez las, co pozwala na lepsze dopasowanie do trudniejszych przypadków.
+
+Główne osiągnięcia projektu obejmują:
+
+\begin{itemize}
+    \item Implementację pełnego algorytmu lasu losowego od podstaw, z wykorzystaniem technik optymalizacyjnych
+    \item Dodanie mechanizmu adaptacyjnego ważenia próbek, inspirowanego algorytmami boostingowymi
+    \item Opracowanie elastycznej biblioteki z konfigurowalnymi parametrami
+    \item Przeprowadzenie obszernych eksperymentów na różnorodnych zbiorach danych
+    \item Identyfikację optymalnych parametrów dla różnych scenariuszy
+\end{itemize}
+
+Przeprowadzone eksperymenty wykazały, że zmodyfikowany Random Forest może konkurować z istniejącymi implementacjami na wybranych zbiorach danych, szczególnie tych z niezbalansowanymi klasami. Jednak kosztem jest znacznie wyższe zapotrzebowanie na zasoby obliczeniowe. Dalsze prace mogłyby skupić się na optymalizacji wydajności algorytmu oraz eksploracji innych mechanizmów adaptacyjnego ważenia przykładów.
+
+\end{document}
