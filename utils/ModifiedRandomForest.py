@@ -46,7 +46,7 @@ class ModifiedRandomForest:
         elif isinstance(self.max_features, float) and 0.0 < self.max_features <= 1.0:
             return int(self.max_features * n_features)
         else:
-            return min(self.max_features, n_features)
+            return min(int(self.max_features), n_features)
 
     def setup_class_mapping(self, y):
         unique_classes = np.unique(y)

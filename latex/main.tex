@@ -1,9 +1,7 @@
-% !TEX root = main.tex
-
-\documentclass[12pt,a4paper]{article}
-\pdfminorversion=7
+\documentclass[11pt,a4paper]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
 \usepackage{amsmath}
 \usepackage{amsfonts}
 \usepackage{amssymb}
@@ -17,8 +15,11 @@
 \usepackage{multirow}
 \usepackage{subcaption}
 \usepackage{pdfpages}
-\usepackage{microtype}
-
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{needspace}
 \lstset{
     basicstyle=\ttfamily\small,
     commentstyle=\color{gray},
@@ -32,7 +33,7 @@
 }
 
 \title{Projekt Wstępny: Zmodyfikowany Algorytm Lasu Losowego z Adaptacyjnym Ważeniem Próbek}
-\author{Imię Nazwisko}
+\author{Jakub Szubzda - 331145 \\ Aleksandra Wasilewska - 331192}
 \date{\today}
 
 \begin{document}
@@ -42,6 +43,11 @@
 \newpage
 
 \section{Opis projektu i zrozumienie problemu}
+\begin{quote}
+"Zaimplementować zmodyfikowaną wersję algorytmu generowania lasu losowego,
+w której do generowania kolejnych drzew losowane są częściej elementy
+ze zbioru uczącego, na których dotychczasowy model się mylił."
+\end{quote}
 
 Niniejszy projekt dotyczy implementacji zmodyfikowanej wersji algorytmu generowania lasu losowego (Random Forest), w której do generowania kolejnych drzew losowane są częściej elementy ze zbioru uczącego, na których dotychczasowy model się mylił. Takie podejście łączy w sobie zalety standardowego lasu losowego z mechanizmem adaptacyjnego ważenia próbek znanym z algorytmów boostingowych jak AdaBoost.
 
@@ -61,62 +67,104 @@ AdaBoost iteracyjnie uczy słabe klasyfikatory, dostosowując wagi próbek po ka
 
 
 \subsubsection{Nasz Algorytm:}
-Parametry:
-\begin{enumerate}
-    \item \textbf{X:} training features, \textbf{y:} training labels
-    \item \textbf{n\_trees:} number of trees
-    \item \textbf{mf:} max features per tree
-    \item \textbf{sf:} sample fraction
-    \item \textbf{md:} max depth
-    \item \textbf{prune:} enable pruning
-    \item \textbf{crit:} split criterion
-    \item \textbf{wv:} weighted voting
-    \item \textbf{ew:} error weight increase
-    \item \textbf{wfs:} weighted feature sampling
-\end{enumerate}
-\clearpage
-\begin{lstlisting}[caption=Pseudokod zmodyfikowanego algorytmu Random Forest]
-Function ModifiedRandomForest(X, y, n_trees, mf, sf, md, prune, crit, wv, ew, wfs):
+
+\begin{lstlisting}Function FitPythonRandomForest(X, y, n_trees, max_features, sample_fraction, max_depth, prune, criterion, error_weight_increase, weighted_feature_sampling):
+    # X, y                     : dane treningowe (cala dostepna probka)
+    # n_trees                : liczba drzew
+    # max_features           : liczba cech do wylosowania w wezle
+    # sample_fraction        : proporcja probek bootstrap (z calego zbioru)
+    # max_depth              : max_depth drzewa
+    # prune                  : flaga przycinania
+    # criterion              : kryterium podzialu (gini/entropy)
+    # error_weight_increase  : wspolczynnik zwiekszania wagi przy bledzie (dla ensemble)
+    # weighted_feature_sampling : czy losowac cechy proporcjonalnie do ich IG
+
+    n_samples = length(X)
+    n_features = length(X[0])
+
     forest = []
-    n = length(X)
-    w = uniform_distribution(n)  # Initialize sample weights
+    oob_accuracies = []
+    feature_importances = vector(n_features, 0.0)
 
-    for i = 1 to n_trees:
-        idx = sample_with_replacement(range(n), size=round(sf*n), p=w)
-        X_i = X[idx]
-        y_i = y[idx]
-        if wfs:
-            ig = calculate_information_gain(X, y)
-            features = weighted_random_selection(mf, weights=ig)
-        else:
-            features = random_selection(mf)
-        tree = build_tree(X_i, y_i, features, md, crit)
-        if prune:
-            tree = prune_tree(tree, X_i, y_i)
+    sample_weights = vector(n_samples, 1.0 / n_samples)
+
+    For i from 1 to n_trees:
+        sample_size = round(sample_fraction * n_samples)
+        idx = sample_with_replacement(0..n_samples-1, size=sample_size, prob=sample_weights)
+
+        oob_mask = vector(n_samples, True)
+        oob_mask[idx] = False
+        X_train_tree = X[idx]
+        y_train_tree = y[idx]
+        X_oob = X[oob_mask]
+        y_oob = y[oob_mask]
+
+        IF weighted_feature_sampling:
+            ig_scores = calculate_information_gain(X_train_tree, y_train_tree)
+            features_subset = weighted_random_selection(max_features, weights=ig_scores)
+        ELSE:
+            features_subset = random_selection(n_features, max_features)
+
+        tree = build_tree(X_train_tree, y_train_tree, features_subset, max_depth, criterion, min_samples_split, min_samples_leaf)
+
+        IF prune:
+            IF length(X_oob) > 0:
+                prune_data_X, prune_data_y = X_oob, y_oob
+            ELSE:
+                prune_data_X, prune_data_y = X_train_tree, y_train_tree
+            tree = prune_tree(tree, prune_data_X, prune_data_y)
+
+        oob_acc = 0.0
+        IF length(X_oob) > 0:
+            oob_predictions = tree.predict(X_oob)
+            oob_acc = accuracy(y_oob, oob_predictions)
+
+        tree_importances = tree.feature_importances_
+
         forest.append(tree)
-        pred = predict(forest, X, wv)
-        errors = (pred != y)
-        for j = 0 to n-1:
-            if errors[j]:
-                w[j] *= (1 + ew)
-        w = w / sum(w)
-    return forest
+        oob_accuracies.append(oob_acc)
+        feature_importances = feature_importances + tree_importances
 
-Function predict(forest, X, wv):
-    predictions = []
-    for tree in forest:
-        pred = tree.predict(X)
-        predictions.append(pred)
-    if wv:
-        weights = []
-        for tree in forest:
-            acc = accuracy(tree, X_val, y_val)
-            weights.append(acc)
-        final_pred = weighted_majority_vote(predictions, weights)
-    else:
-        final_pred = majority_vote(predictions)
-    return final_pred
+        IF error_weight_increase > 0:
+            current_ensemble_pred = ensemble_predict(forest, X)ensemble istnieje
+
+            errors = (current_ensemble_pred != y)
+
+            For j in 0..n_samples-1:
+                IF errors[j]:
+                    sample_weights[j] *= (1.0 + error_weight_increase)
+
+            sample_weights = normalize(sample_weights)
+
+    IF sum(feature_importances) > 0:
+        feature_importances = normalize(feature_importances)
+
+    RETURN forest, oob_accuracies, feature_importances
 \end{lstlisting}
+
+\begin{lstlisting}Function PredictPythonRandomForest(forest, X, use_weighted_vote, oob_accuracies=None):
+    # forest           : lista wytrenowanych drzew
+    # X                : dane, na ktorych wykonac predykcje
+    # use_weighted_vote: flaga wazonego glosowania
+    # oob_accuracies   : opcjonalne dokladnosci OOB drzew (do wazenia)
+
+    # Ta funkcja zbiera predykcje od kazdego drzewa w lesie
+    # i agreguje je do koncowej predykcji dla kazdej probki w X.
+    # Sposob agregacji zalezy od flagi use_weighted_vote.
+    # Jesli use_weighted_vote jest True, wykorzystuje wagi (np. oob_accuracies).
+
+    all_trees_predictions = []
+    For each tree in forest:
+        tree_predictions = tree.predict(X)
+        all_trees_predictions.append(tree_predictions)
+
+    IF use_weighted_vote:
+        final_predictions = perform_weighted_voting(all_trees_predictions, oob_accuracies)
+    ELSE:
+        final_predictions = perform_majority_voting(all_trees_predictions)
+    RETURN final_predictions
+\end{lstlisting}
+
 
 \subsection{Funkcje pomocnicze do implementacji}
 
@@ -125,63 +173,63 @@ Realizacja zmodyfikowanego algorytmu Random Forest wymaga implementacji następu
 \begin{enumerate}
     \item \textbf{Funkcje związane z próbkowaniem i wagami:}
     \begin{enumerate}
-        \item \texttt{uniform\_distribution} -- tworzy tablicę jednakowych wag dla wszystkich próbek
-        \item \texttt{sample\_with\_replacement} -- losuje próbki według zadanego rozkładu prawdopodobieństwa
-        \item \texttt{normalize\_weights} -- normalizuje wektor wag, aby sumował się do 1
+        \item \texttt{uniform\_distribution} - tworzy tablicę jednakowych wag dla wszystkich próbek
+        \item \texttt{sample\_with\_replacement} - losuje próbki według zadanego rozkładu prawdopodobieństwa
+        \item \texttt{normalize\_weights} - normalizuje wektor wag, aby sumował się do 1
     \end{enumerate}
 
     \item \textbf{Funkcje do wyboru cech:}
     \begin{enumerate}
-        \item \texttt{calculate\_information\_gain} -- oblicza zysk informacyjny dla wszystkich cech
-        \item \texttt{calculate\_gini\_impurity} -- oblicza współczynnik nieczystości Giniego dla możliwych podziałów
-        \item \texttt{weighted\_random\_selection} -- wybiera cechy z prawdopodobieństwem proporcjonalnym do ich wag
-        \item \texttt{random\_selection} -- wybiera cechy z równomiernym prawdopodobieństwem
+        \item \texttt{calculate\_information\_gain} - oblicza zysk informacyjny dla wszystkich cech
+        \item \texttt{calculate\_gini\_impurity} - oblicza współczynnik nieczystości Giniego dla możliwych podziałów
+        \item \texttt{weighted\_random\_selection} - wybiera cechy z prawdopodobieństwem proporcjonalnym do ich wag
+        \item \texttt{random\_selection} - wybiera cechy z równomiernym prawdopodobieństwem
     \end{enumerate}
 
     \item \textbf{Funkcje budowy drzewa:}
     \begin{enumerate}
-        \item \texttt{build\_tree} -- główna funkcja rekurencyjnie budująca drzewo decyzyjne
-        \item \texttt{find\_best\_split} -- znajduje optymalną cechę i próg dla węzła
-        \item \texttt{split\_node} -- dzieli dane na podstawie cechy i progu
-        \item \texttt{create\_leaf} -- tworzy węzeł końcowy (liść) z klasą większościową
-        \item \texttt{is\_pure} -- sprawdza, czy wszystkie próbki w węźle należą do tej samej klasy
-        \item \texttt{calculate\_entropy} -- oblicza entropię do obliczeń zysku informacyjnego
+        \item \texttt{build\_tree} - główna funkcja rekurencyjnie budująca drzewo decyzyjne
+        \item \texttt{find\_best\_split} - znajduje optymalną cechę i próg dla węzła
+        \item \texttt{split\_node} - dzieli dane na podstawie cechy i progu
+        \item \texttt{create\_leaf} - tworzy węzeł końcowy (liść) z klasą większościową
+        \item \texttt{is\_pure} - sprawdza, czy wszystkie próbki w węźle należą do tej samej klasy
+        \item \texttt{calculate\_entropy} - oblicza entropię do obliczeń zysku informacyjnego
     \end{enumerate}
 
     \item \textbf{Funkcje przycinania drzewa:}
     \begin{enumerate}
-        \item \texttt{prune\_tree} -- implementuje przycinanie drzewa decyzyjnego po jego zbudowaniu
-        \item \texttt{calculate\_error} -- ocenia błąd poddrzewa na danych walidacyjnych
-        \item \texttt{evaluate\_prune\_candidate} -- sprawdza, czy zastąpienie poddrzewa liściem poprawia wyniki
+        \item \texttt{prune\_tree} - implementuje przycinanie drzewa decyzyjnego po jego zbudowaniu
+        \item \texttt{calculate\_error} - ocenia błąd poddrzewa na danych walidacyjnych
+        \item \texttt{evaluate\_prune\_candidate} - sprawdza, czy zastąpienie poddrzewa liściem poprawia wyniki
     \end{enumerate}
 
     \item \textbf{Funkcje predykcji:}
     \begin{enumerate}
-        \item \texttt{predict\_tree} -- uzyskuje predykcje z pojedynczego drzewa decyzyjnego
-        \item \texttt{majority\_vote} -- łączy predykcje za pomocą prostego głosowania
-        \item \texttt{weighted\_majority\_vote} -- łączy predykcje z wagami opartymi na dokładności drzewa
-        \item \texttt{accuracy} -- oblicza dokładność klasyfikacji modelu
+        \item \texttt{predict\_tree} - uzyskuje predykcje z pojedynczego drzewa decyzyjnego
+        \item \texttt{majority\_vote} - łączy predykcje za pomocą prostego głosowania
+        \item \texttt{weighted\_majority\_vote} - łączy predykcje z wagami opartymi na dokładności drzewa
+        \item \texttt{accuracy} - oblicza dokładność klasyfikacji modelu
     \end{enumerate}
 
     \item \textbf{Funkcje przetwarzania danych:}
     \begin{enumerate}
-        \item \texttt{handle\_missing\_values} -- uzupełnia lub obsługuje brakujące wartości
-        \item \texttt{encode\_categorical} -- konwertuje cechy kategoryczne na reprezentację numeryczną
-        \item \texttt{compute\_leaf\_value} -- określa wartość predykcji dla węzła liścia
+        \item \texttt{handle\_missing\_values} - uzupełnia lub obsługuje brakujące wartości
+        \item \texttt{encode\_categorical} - konwertuje cechy kategoryczne na reprezentację numeryczną
+        \item \texttt{compute\_leaf\_value} - określa wartość predykcji dla węzła liścia
     \end{enumerate}
 
     \item \textbf{Funkcje ewaluacji:}
     \begin{enumerate}
-        \item \texttt{confusion\_matrix} -- tworzy macierz pomyłek do oceny
-        \item \texttt{calculate\_metrics} -- oblicza precyzję, recall, F1 i inne metryki
-        \item \texttt{cross\_validate} -- implementuje k-krotną walidację krzyżową do oceny modelu
-        \item \texttt{roc\_auc} -- oblicza pole pod krzywą ROC dla klasyfikacji binarnej
+        \item \texttt{confusion\_matrix} - tworzy macierz pomyłek do oceny
+        \item \texttt{calculate\_metrics} - oblicza precyzję, recall, F1 i inne metryki
+        \item \texttt{cross\_validate} - implementuje k-krotną walidację krzyżową do oceny modelu
+        \item \texttt{roc\_auc} - oblicza pole pod krzywą ROC dla klasyfikacji binarnej
     \end{enumerate}
 
     \item \textbf{Implementacja węzłów drzewa:}
     \begin{enumerate}
-        \item \texttt{create\_node} -- tworzy strukturę wewnętrznego węzła drzewa
-        \item \texttt{check\_stopping\_criteria} -- sprawdza, czy budowa drzewa powinna się zatrzymać (głębokość, min\_samples itp.)
+        \item \texttt{create\_node} - tworzy strukturę wewnętrznego węzła drzewa
+        \item \texttt{check\_stopping\_criteria} - sprawdza, czy budowa drzewa powinna się zatrzymać (głębokość, min\_samples itp.)
     \end{enumerate}
 \end{enumerate}
 
@@ -192,16 +240,39 @@ Powyższe funkcje zapewnią kompletną implementację algorytmu zmodyfikowanego 
 Proponowany algorytm zawiera następujące parametry konfiguracyjne:
 
 \begin{enumerate}
-    \item \textbf{liczba cech branych do każdego drzewa} (\texttt{max\_features}) -- określa ile cech jest losowanych do konstrukcji pojedynczego drzewa
-    \item \textbf{część przykładów brana do każdego drzewa} (\texttt{sample\_fraction}) -- określa jaki procent zbioru treningowego jest używany do trenowania pojedynczego drzewa
-    \item \textbf{liczba drzew} (\texttt{n\_trees}) -- określa rozmiar lasu losowego
-    \item \textbf{maksymalna głębokość drzewa} (\texttt{max\_depth}) -- ogranicza złożoność pojedynczych drzew
-    \item \textbf{przycinanie drzew} (\texttt{pruning}) -- czy drzewa powinny być przycinane po wygenerowaniu
-    \item \textbf{kryterium podziału} (\texttt{criterion}) -- wybór między miarami Gini Impurity i Information Gain
-    \item \textbf{ważone głosowanie} (\texttt{weighted\_voting}) -- czy głosy drzew są ważone względem ich dokładności
-    \item \textbf{wzrost wagi błędnie sklasyfikowanych przykładów} (\texttt{error\_weight\_increase}) -- określa o ile procent wzrasta waga źle sklasyfikowanych przykładów
-    \item \textbf{ważone losowanie cech} (\texttt{weighted\_feature\_sampling}) -- czy cechy są losowane z prawdopodobieństwem proporcjonalnym do ich Information Gain
+    \item \textbf{liczba cech branych do każdego drzewa} (\texttt{max\_features - mf}) - określa ile cech jest losowanych do konstrukcji pojedynczego drzewa
+    \item \textbf{część przykładów brana do każdego drzewa} (\texttt{sample\_fraction - sf}) - określa jaki procent zbioru treningowego jest używany do trenowania pojedynczego drzewa
+    \item \textbf{liczba drzew} (\texttt{n\_trees}) - określa rozmiar lasu losowego
+    \item \textbf{maksymalna głębokość drzewa} (\texttt{max\_depth - md}) - ogranicza złożoność pojedynczych drzew
+    \item \textbf{przycinanie drzew} (\texttt{prune}) - czy drzewa powinny być przycinane po wygenerowaniu
+    \item \textbf{kryterium podziału} (\texttt{crit}) - wybór między miarami Gini Impurity i Information Gain
+    \item \textbf{ważone głosowanie} (\texttt{weighted\_voting}) - czy głosy drzew są ważone względem ich dokładności
+    \item \textbf{wzrost wagi błędnie sklasyfikowanych przykładów} (\texttt{error\_weight\_increase - ew}) - określa o ile procent wzrasta waga źle sklasyfikowanych przykładów
+    \item \textbf{ważone losowanie cech} (\texttt{weighted\_feature\_sampling}) - czy cechy są losowane z prawdopodobieństwem proporcjonalnym do ich Information Gain
 \end{enumerate}
+
+\subsection{Podział danych}
+Zamiast jednorazowego podziału 80/20 wykorzystujemy technikę bootstrap + OOB (out-of-bag) dla każdego drzewa.
+
+Dla każdego drzewa $i$ wykonujemy następujące kroki:
+\begin{enumerate}
+  \item \textbf{Dane wejściowe:} pełny zbiór treningowy $(X, y)$ zawierający $n_{\mathrm{samples}}$ próbek, z wektorem wag $\{w_j\}_{j=1}^{n_{\mathrm{samples}}}$.
+  \item \textbf{Losowanie próbek bootstrap:}
+    \[ \text{sample\_size} = \left\lfloor \text{sample\_fraction} \cdot n_{\mathrm{samples}} \right\rfloor, \]
+    \[ \mathrm{idx}_i \sim \text{sample\_with\_replacement}\bigl(\{0,\dots,n_{\mathrm{samples}}-1\},\;\text{size}=\text{sample\_size},\;\text{prob}=\{w_j\}\bigr). \]
+  \item \textbf{Zbiór treningowy dla drzewa $i$:}
+    \[ X_{\mathrm{train}}^{(i)} = X[\mathrm{idx}_i], \quad y_{\mathrm{train}}^{(i)} = y[\mathrm{idx}_i]. \]
+  \item \textbf{Maska OOB:}
+    \[ \mathrm{oob\_mask}_j = \begin{cases}
+        \mathrm{False}, & j \in \mathrm{idx}_i,\\
+        \mathrm{True}, & \text{w przeciwnym razie}.
+      \end{cases} \]
+  \item \textbf{Zbiór OOB (walidacyjny):}
+    \[ X_{\mathrm{oob}}^{(i)} = X[\mathrm{oob\_mask}], \quad y_{\mathrm{oob}}^{(i)} = y[\mathrm{oob\_mask}]. \]
+\end{enumerate}
+
+Dzięki tej procedurze każde drzewo jest trenowane na próbkach pobranych z powtórzeniami, a jego wydajność oceniamy na obserwacjach nieużytych w bootstrapingu.
+
 
 \subsection{Przykładowe obliczenia}
 
@@ -245,9 +316,13 @@ Przy $\texttt{weighted\_feature\_sampling} = \text{True}$ i Information Gain cec
 
 \section{Szacunkowy plan eksperymentów}
 
-\subsection{Metodologia}
+\subsection{Metodyka}
 
 Eksperymenty będą przeprowadzone w języku Python z wykorzystaniem biblioteki NumPy, SciPy oraz Numba dla optymalizacji wydajności. Kompilacja kodu z Numba pozwoli na znaczne przyspieszenie obliczeń, szczególnie dla dużych zbiorów danych.
+
+
+
+
 
 \subsection{Porównania algorytmów}
 
@@ -301,8 +376,8 @@ Przetestujemy wpływ różnych parametrów na wydajność modelu. Dla każdego z
 
     \item \textbf{Kryterium podziału} (\texttt{criterion}):
     \begin{itemize}
-        \item `gini' (współczynnik Giniego)
-        \item `entropy' (Information Gain)
+        \item 'gini' (współczynnik Giniego)
+        \item 'entropy' (Information Gain)
     \end{itemize}
 
     \item \textbf{Ważone głosowanie} (\texttt{weighted\_voting}):
@@ -328,20 +403,19 @@ Przetestujemy wpływ różnych parametrów na wydajność modelu. Dla każdego z
 \end{enumerate}
 
 \subsection{Przestrzeń eksperymentów i strategia poszukiwań}
-\begin{sloppypar}
+
 Pełna przestrzeń poszukiwań dla wszystkich kombinacji parametrów wynosi:
 \begin{equation}
 4 \times 3 \times 4 \times 3 \times 2 \times 2 \times 2 \times 5 \times 2 = 5760
 \end{equation}
 konfiguracji dla każdego z 5 zbiorów danych, co daje łącznie 28800 eksperymentów.
-\end{sloppypar}
 
 Ze względu na dużą liczbę kombinacji, zastosujemy dwufazową strategię eksperymentów:
 
 \begin{enumerate}
-    \item \textbf{Faza 1: Eksploracja wpływu indywidualnych parametrów} -- każdy parametr będzie testowany niezależnie, przy ustalonych wartościach domyślnych dla pozostałych parametrów.
+    \item \textbf{Faza 1: Eksploracja wpływu indywidualnych parametrów} - każdy parametr będzie testowany niezależnie, przy ustalonych wartościach domyślnych dla pozostałych parametrów.
 
-    \item \textbf{Faza 2: Optymalizacja z użyciem najlepszych wartości} -- na podstawie wyników fazy 1, wybierzemy najbardziej obiecujące wartości każdego parametru i przeprowadzimy eksperymenty na ich kombinacjach, wykorzystując metody przeszukiwania jak RandomizedSearchCV.
+    \item \textbf{Faza 2: Optymalizacja z użyciem najlepszych wartości} - na podstawie wyników fazy 1, wybierzemy najbardziej obiecujące wartości każdego parametru i przeprowadzimy eksperymenty na ich kombinacjach, wykorzystując metody przeszukiwania jak RandomizedSearchCV.
 \end{enumerate}
 
 \textbf{Wartości domyślne parametrów dla Fazy 1:}
@@ -351,38 +425,40 @@ Ze względu na dużą liczbę kombinacji, zastosujemy dwufazową strategię eksp
     \item n\_trees = 100
     \item max\_depth = None
     \item pruning = False
-    \item criterion = `gini'
+    \item criterion = 'gini'
     \item weighted\_voting = False
     \item error\_weight\_increase = 0.3
     \item weighted\_feature\_sampling = False
 \end{itemize}
 
+
+
 \subsection{Metryki oceny}
 
 Do ewaluacji modeli wykorzystamy następujące metryki:
 \begin{itemize}
-    \item \textbf{Accuracy} -- procent poprawnie sklasyfikowanych przykładów:
+    \item \textbf{Accuracy} - procent poprawnie sklasyfikowanych przykładów:
     \begin{equation}
     \text{Accuracy} = \frac{\text{TP} + \text{TN}}{\text{TP} + \text{TN} + \text{FP} + \text{FN}}
     \end{equation}
 
-    \item \textbf{Precision} -- precyzja, czyli stosunek prawdziwie pozytywnych do wszystkich pozytywnych predykcji:
+    \item \textbf{Precision} - precyzja, czyli stosunek prawdziwie pozytywnych do wszystkich pozytywnych predykcji:
     \begin{equation}
     \text{Precision} = \frac{\text{TP}}{\text{TP} + \text{FP}}
     \end{equation}
 
-    \item \textbf{Recall} -- czułość, czyli stosunek prawdziwie pozytywnych do wszystkich faktycznie pozytywnych:
+    \item \textbf{Recall} - czułość, czyli stosunek prawdziwie pozytywnych do wszystkich faktycznie pozytywnych:
     \begin{equation}
     \text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
     \end{equation}
 
-    \item \textbf{F1 Score} -- średnia harmoniczna precision i recall:
+    \item \textbf{F1 Score} - średnia harmoniczna precision i recall:
     \begin{equation}
     \text{F1} = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
     \end{equation}
 
-    \item \textbf{ROC AUC} -- pole pod krzywą ROC, mierzące zdolność klasyfikatora do rozróżniania klas
-    \item \textbf{Macierz pomyłek} -- wizualizacja poprawnych i niepoprawnych klasyfikacji
+    \item \textbf{ROC AUC} - pole pod krzywą ROC, mierzące zdolność klasyfikatora do rozróżniania klas
+    \item \textbf{Macierz pomyłek} - wizualizacja poprawnych i niepoprawnych klasyfikacji
 \end{itemize}
 
 % Dodatkowo dla zadań klasyfikacji wieloklasowej będziemy stosować:
@@ -393,18 +469,17 @@ Do ewaluacji modeli wykorzystamy następujące metryki:
 % \end{itemize}
 
 \subsection{Oczekiwane wyniki}
-\begin{sloppypar}
+
 Spodziewamy się następujących rezultatów:
 \begin{enumerate}
     \item Zmodyfikowany Random Forest powinien przewyższać standardowy Random Forest na zbiorach danych z trudnymi przypadkami brzegowymi
     \item Adaptacyjne ważenie próbek powinno szczególnie poprawić wyniki na niezbalansowanych zbiorach danych (Bank Marketing, Adult Census)
     \item Ważone głosowanie drzew powinno zwiększyć dokładność końcowych predykcji, zwłaszcza na zbiorach z szumem
     \item Ważone losowanie cech powinno poprawić wybór najważniejszych cech na zbiorach z dużą liczbą parametrów (MNIST)
-    \item Dla zbiorów z wieloma klasami (MNIST, Wine Quality) przewidujemy poprawę wskaźników F1 o 2--5\% w porównaniu do standardowego Random Forest
-    \item W przypadku zbiorów niezbalansowanych (Bank Marketing) spodziewamy się poprawy w recall klasy mniejszościowej o 5--10\%
-    \item Kompromis między czasem obliczeniowym a jakością predykcji będzie różny dla różnych konfiguracji i zbiorów danych -- oczekujemy, że największe lasy (200 drzew) będą dawały najlepsze wyniki, ale z malejącą korzyścią w stosunku do kosztów obliczeniowych
+    \item Dla zbiorów z wieloma klasami (MNIST, Wine Quality) przewidujemy poprawę wskaźników F1 o 2-5\% w porównaniu do standardowego Random Forest
+    \item W przypadku zbiorów niezbalansowanych (Bank Marketing) spodziewamy się poprawy w recall klasy mniejszościowej o 5-10\%
+    \item Kompromis między czasem obliczeniowym a jakością predykcji będzie różny dla różnych konfiguracji i zbiorów danych - oczekujemy, że największe lasy (200 drzew) będą dawały najlepsze wyniki, ale z malejącą korzyścią w stosunku do kosztów obliczeniowych
 \end{enumerate}
-\end{sloppypar}
 
 \section{Opis zbiorów danych do badań}
 
@@ -433,7 +508,7 @@ Większy zbiór z cechami kategorycznymi i numerycznymi
 \begin{itemize}
     \item 48842 próbek
     \item 14 cech (mieszanka numerycznych i kategorycznych)
-    \item 2 klasy (dochód >50K lub $\leq$ 50K)
+    \item 2 klasy (dochód >50K lub ≤50K)
     \item Umiarkowanie niezbalansowane klasy ($\sim$25\% klasy minoritet)
 \end{itemize}
 
@@ -451,7 +526,7 @@ Duży zbiór danych do klasyfikacji obrazów (wyzwanie dla algorytmów nieneuron
 \begin{itemize}
     \item 60000 próbek treningowych, 10000 testowych
     \item 784 cechy (piksele 28x28)
-    \item 10 klas (cyfry 0--9)
+    \item 10 klas (cyfry 0-9)
 \end{itemize}
 
 \subsection{Analiza zbiorów danych używanych w projekcie}
@@ -459,21 +534,21 @@ Duży zbiór danych do klasyfikacji obrazów (wyzwanie dla algorytmów nieneuron
 W analizie zbiorów danych wykorzystamy następujące miary i techniki:
 
 \begin{itemize}
-    \item \textbf{Liczba próbek, cech, klas} -- podstawowa charakterystyka rozmiaru zbioru danych
-    \item \textbf{Liczebność klas} -- pomaga zidentyfikować niezbalansowanie danych
-    \item \textbf{Procent braków w cechach} -- wskazuje na kompletność danych
-    \item \textbf{Wzorce braków} -- identyfikacja systematycznych braków, które mogą wpływać na model
-    \item \textbf{Rozkład cech} -- szczególnie istotna dla cech kategorycznych
-    \item \textbf{Macierz korelacji} -- obliczana przez współczynnik Pearsona:
+    \item \textbf{Liczba próbek, cech, klas} - podstawowa charakterystyka rozmiaru zbioru danych
+    \item \textbf{Liczebność klas} - pomaga zidentyfikować niezbalansowanie danych
+    \item \textbf{Procent braków w cechach} - wskazuje na kompletność danych
+    \item \textbf{Wzorce braków} - identyfikacja systematycznych braków, które mogą wpływać na model
+    \item \textbf{Rozkład cech} - szczególnie istotna dla cech kategorycznych
+    \item \textbf{Macierz korelacji} - obliczana przez współczynnik Pearsona:
     \begin{equation}
     r_{xy} = \frac{\sum_{i=1}^{n}(x_i-\bar{x})(y_i-\bar{y})}{\sqrt{\sum_{i=1}^{n}(x_i-\bar{x})^2 \sum_{i=1}^{n}(y_i-\bar{y})^2}}
     \end{equation}
 
-    \item \textbf{Mutual Information (MI)} -- mierzy zależność między zmiennymi:
+    \item \textbf{Mutual Information (MI)} - mierzy zależność między zmiennymi:
     \begin{equation}
     I(X;Y) = \sum_{y \in Y} \sum_{x \in X} p(x,y) \log\left(\frac{p(x,y)}{p(x)p(y)}\right)
     \end{equation}
-    \item \textbf{Information Gain (IG)} -- mierzy redukcję entropii:
+    \item \textbf{Information Gain (IG)} - mierzy redukcję entropii:
     \begin{equation}
     IG(S, A) = H(S) - \sum_{v \in Values(A)} \frac{|S_v|}{|S|} H(S_v)
     \end{equation}
@@ -484,7 +559,6 @@ W analizie zbiorów danych wykorzystamy następujące miary i techniki:
 \label{tab:dataset_comparison}
 \begin{tabular}{lccccc}
 \toprule
-
 Dataset & Samples & Features & Classes & Imbalance Ratio & Missing Values(\%) \\
 \midrule
 Iris & 150 & 4 & 3 & 1 & 0 \\
@@ -495,9 +569,360 @@ MNIST & 70000 & 784 & 10 & 1.25 & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
+\subsubsection{Kryteria sensowności zbiorów}
+Po wstępnych testach odrzucamy zbiory, które są:
+\begin{enumerate}
+  \item \textbf{Za łatwe:} accuracy RF w CV > 99\,\% lub F1-score > 0,99.
+  \item \textbf{Za trudne/losowe:} accuracy $\approx1/n_{\text{klas}}$ lub bardzo mała wrażliwość na zmianę parametrów.
+  \item \textbf{Sensowne:} accuracy w przedziale [max(1/$n_c$,0,30)\,--\,0,98] oraz wyraźna zmienność wyników przy modyfikacji kluczowych parametrów.
+\end{enumerate}
+Odrzucone zbiory dokumentujemy i – jeśli nie zebrało się 3 sensownych – dobieramy nowe.
+
+
 
 \subsection{Analiza wizualna zbiorów}
-\clearpage
-\includepdf[pages=-]{combined_plots.pdf}
+
+\subsubsection{Iris dataset}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris dataset summary.png}
+    \caption{Tabela podsumowująca zestaw danych Iris}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris cladd distribution.png}
+    \caption{Rozkład klas}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/brak braków iris.png}
+    \caption{Analiza brakujących wartości - tutaj brak takich}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris macierz korelacji.png}
+    \caption{Macierz korelacji - heatmapa z korelacjami między cechami}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris rozkłąd cech.png}
+    \caption{Rozkład cech - mediana, rozstęp międzykwartylowy i wartości odstające}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris MI.png}
+    \caption{Mutual Information z klasą}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris Info gain.png}
+    \caption{Infromation gain dla cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/iris CV.png}
+    \caption{Zmienne współnczynniki zmienności - CV}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/Iris_pairplot.png}
+    \caption{Wykres par—scatter + KDE po przekątnej—ilustruje relacje pomiędzy wszystkimi parami cech, pokolorowany etykietą klasy}
+    \label{fig:enter-label}
+\end{figure}
+
+
+\subsubsection{Wine dataset}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine summary.png}
+    \caption{Tabela podsumowująca zestaw danych Wine}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine distribution .png}
+    \caption{Rozkład klas}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/win ebrak braków.png}
+    \caption{Analiza brakujących wartości - tutaj brak takich}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine macierz korelacji.png}
+    \caption{Macierz korelacji - heatmapa z korelacjami między cechami}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine rozdkłąd cech.png}
+    \caption{Rozkład cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine MI.png}
+    \caption{Mutual Information z klasą}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/win einfo gain.png}
+    \caption{Infromation gain dla cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{iris/wine/wine CV.png}
+    \caption{Zmienne współnczynniki zmienności - CV}
+    \label{fig:enter-label}
+\end{figure}
+
+
+
+
+\subsubsection{Adult census dataset}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c summary.png}
+    \caption{Tabela podsumowująca zestaw danych adult census}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład.png}
+    \caption{Rozkład klas}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c heatmapa braków.png}
+    \caption{Analiza brakujących wartości - heatmapa}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c macierz korelacji.png}
+    \caption{Macierz korelacji - heatmapa z korelacjami między cechami}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkąłd cech.png}
+    \caption{Rozkład cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c MI.png}
+    \caption{Mutual Information z klasą}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c info gain.png}
+    \caption{Infromation gain dla cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c CV.png}
+    \caption{Zmienne współnczynniki zmienności - CV}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład cech kategorycznych workclass.png}
+    \caption{Rozkład cech kategorycznych - klasa robocza}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład cech kategorycznych eductaion.png}
+    \caption{Rozkład cech kategorycznych - edukacja}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład cech kategorycznych marital status.png}
+    \caption{Rozkład cech kategorycznych - stan cywilny}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład cech kategorycznych occupation.png}
+    \caption{Rozkład cech kategorycznych - zajęcie}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{adult_census/adult_c rozkład cech kategorycznych relationship.png}
+    \caption{Rozkład cech kategorycznych - relacja}
+    \label{fig:enter-label}
+\end{figure}
+
+
+
+
+
+\subsubsection{Bank marketing dataset}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m summary.png}
+    \caption{Tabela podsumowująca zestaw danych bank marketing}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkład.png}
+    \caption{Rozkład klas}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m heatmap braków.png}
+    \caption{Analiza brakujących wartości - heatmapa}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m macierz korelacji.png}
+    \caption{Macierz korelacji - heatmapa z korelacjami między cechami}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkłąd cech.png}
+    \caption{Rozkład cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m MI.png}
+    \caption{Mutual Information z klasą}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m info gain.png}
+    \caption{Infromation gain dla cech}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m CV.png}
+    \caption{Zmienne współnczynniki zmienności - CV}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkład cech kategorycznych job.png}
+    \caption{Rozkład cech kategorycznych - praca}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkład cech kategorycznych marital.png}
+    \caption{Rozkład cech kategorycznych - stan cywilny}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkład cech kategorycznych education.png}
+    \caption{Rozkład cech kategorycznych - edukacja}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{Bank _marketing/bank_m rozkład cech kategorycznych housing.png}
+    \caption{Rozkład cech kategorycznych - housing}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{obraz_2025-04-27_224209673.png}
+    \caption{Rozkład cech kategorycznych - default}
+    \label{fig:enter-label}
+\end{figure}
+
+
+
+\subsubsection{MNIST dataset}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{MNIST/mnist summary.png}
+    \caption{Tabela podsumowująca zestaw danych MNIST}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{MNIST/mnist rozkłąd.png}
+    \caption{Rozkład klas}
+    \label{fig:enter-label}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{MNIST/mnist macierz korelacji.png}
+    \caption{Macierz korelacji - heatmapa z korelacjami między cechami}
+    \label{fig:enter-label}
+\end{figure}
+
 
 \end{document}

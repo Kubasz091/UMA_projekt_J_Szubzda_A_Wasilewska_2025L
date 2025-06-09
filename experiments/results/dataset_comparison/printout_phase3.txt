@@ -1,0 +1,60 @@
+
+Processing dataset: Iris
+  Data: X_train (120, 4), y_train (120,), n_features 4, num_classes 3
+  Training ModifiedRF...
+Set up class mapping with 3 classes
+    ModifiedRF Metrics: {'accuracy': 0.9, 'precision': 0.9023569023569024, 'recall': 0.9, 'f1_score': 0.8997493734335839, 'roc_auc': np.float64(0.9849999999999999), 'fit_time': 6.916304588317871, 'dataset': 'Iris', 'model': 'ModifiedRF'}
+  Training ScikitRF...
+    ScikitRF Metrics: {'accuracy': 0.9, 'precision': 0.9023569023569024, 'recall': 0.9, 'f1_score': 0.8997493734335839, 'roc_auc': np.float64(0.9866666666666667), 'fit_time': 0.056224822998046875, 'dataset': 'Iris', 'model': 'ScikitRF'}
+  Training AdaBoost...
+    AdaBoost Metrics: {'accuracy': 0.9333333333333333, 'precision': 0.9333333333333333, 'recall': 0.9333333333333333, 'f1_score': 0.9333333333333333, 'roc_auc': np.float64(0.975), 'fit_time': 0.06731986999511719, 'dataset': 'Iris', 'model': 'AdaBoost'}
+
+Processing dataset: Wine Quality (original)
+  Data: X_train (5197, 11), y_train (5197,), n_features 11, num_classes 7
+  Training ModifiedRF...
+Set up class mapping with 7 classes
+    ModifiedRF Metrics: {'accuracy': 0.6561538461538462, 'precision': 0.6786927758615987, 'recall': 0.6561538461538462, 'f1_score': 0.6398366113454682, 'roc_auc': np.float64(0.8305814164129234), 'fit_time': 75.3430848121643, 'dataset': 'Wine Quality (original)', 'model': 'ModifiedRF'}
+  Training ScikitRF...
+    ScikitRF Metrics: {'accuracy': 0.6892307692307692, 'precision': 0.6897389962426195, 'recall': 0.6892307692307692, 'f1_score': 0.6774353377082827, 'roc_auc': np.float64(0.8586438678590894), 'fit_time': 1.0165250301361084, 'dataset': 'Wine Quality (original)', 'model': 'ScikitRF'}
+  Training AdaBoost...
+    AdaBoost Metrics: {'accuracy': 0.4523076923076923, 'precision': 0.42434789450002464, 'recall': 0.4523076923076923, 'f1_score': 0.39755827905097435, 'roc_auc': np.float64(0.6303486214247149), 'fit_time': 0.2510409355163574, 'dataset': 'Wine Quality (original)', 'model': 'AdaBoost'}
+
+Processing dataset: Adult Census
+  Data: X_train (38096, 91), y_train (38096,), n_features 91, num_classes 2
+  Training ModifiedRF...
+Set up class mapping with 2 classes
+    ModifiedRF Metrics: {'accuracy': 0.74750656167979, 'precision': 0.821485266743226, 'recall': 0.74750656167979, 'f1_score': 0.7642594443886063, 'roc_auc': np.float64(0.8605088925651906), 'fit_time': 137.65089511871338, 'dataset': 'Adult Census', 'model': 'ModifiedRF'}
+  Training ScikitRF...
+    ScikitRF Metrics: {'accuracy': 0.8483989501312336, 'precision': 0.8431837330761142, 'recall': 0.8483989501312336, 'f1_score': 0.8447831748396178, 'roc_auc': np.float64(0.8954977103694844), 'fit_time': 2.213348627090454, 'dataset': 'Adult Census', 'model': 'ScikitRF'}
+  Training AdaBoost...
+    AdaBoost Metrics: {'accuracy': 0.849238845144357, 'precision': 0.8420881983928145, 'recall': 0.849238845144357, 'f1_score': 0.8402711317596855, 'roc_auc': np.float64(0.9024182924055925), 'fit_time': 2.386077404022217, 'dataset': 'Adult Census', 'model': 'AdaBoost'}
+
+Processing dataset: Bank Marketing
+  Data: X_train (36168, 32), y_train (36168,), n_features 32, num_classes 2
+  Training ModifiedRF...
+Set up class mapping with 2 classes
+    ModifiedRF Metrics: {'accuracy': 0.8905230565077961, 'precision': 0.8682863536027857, 'recall': 0.8905230565077961, 'f1_score': 0.8570873066593304, 'roc_auc': np.float64(0.712163401841591), 'fit_time': 122.8751916885376, 'dataset': 'Bank Marketing', 'model': 'ModifiedRF'}
+  Training ScikitRF...
+    ScikitRF Metrics: {'accuracy': 0.8802388587858012, 'precision': 0.8508347283433962, 'recall': 0.8802388587858012, 'f1_score': 0.8577129994306308, 'roc_auc': np.float64(0.6782640655387642), 'fit_time': 1.7340774536132812, 'dataset': 'Bank Marketing', 'model': 'ScikitRF'}
+  Training AdaBoost...
+    AdaBoost Metrics: {'accuracy': 0.8928452947030853, 'precision': 0.8725260684834282, 'recall': 0.8928452947030853, 'f1_score': 0.8632658412844572, 'roc_auc': np.float64(0.7379156689113449), 'fit_time': 1.15910005569458, 'dataset': 'Bank Marketing', 'model': 'AdaBoost'}
+
+Processing dataset: MNIST
+  Data: X_train (56000, 112), y_train (56000,), n_features 112, num_classes 10
+  Training ModifiedRF...
+Set up class mapping with 10 classes
+    ModifiedRF Metrics: {'accuracy': 0.8782142857142857, 'precision': 0.8782035466599616, 'recall': 0.8782142857142857, 'f1_score': 0.8779628924496758, 'roc_auc': np.float64(0.985769865692694), 'fit_time': 2052.591846227646, 'dataset': 'MNIST', 'model': 'ModifiedRF'}
+  Training ScikitRF...
+    ScikitRF Metrics: {'accuracy': 0.9214285714285714, 'precision': 0.9215013314650418, 'recall': 0.9214285714285714, 'f1_score': 0.9213748276048849, 'roc_auc': np.float64(0.9951376045519221), 'fit_time': 22.61206340789795, 'dataset': 'MNIST', 'model': 'ScikitRF'}
+  Training AdaBoost...
+    AdaBoost Metrics: {'accuracy': 0.6282857142857143, 'precision': 0.6437331728418925, 'recall': 0.6282857142857143, 'f1_score': 0.6318428046308783, 'roc_auc': np.float64(0.9223152010050116), 'fit_time': 25.286052227020264, 'dataset': 'MNIST', 'model': 'AdaBoost'}
+
+All dataset comparison results saved to /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/dataset_comparison_results.csv
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_accuracy.png
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_precision.png
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_recall.png
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_f1_score.png
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_roc_auc.png
+Saved comparison plot: /home/jszubzda/UMA_projekt_J_Szubzda_A_Wasilewska_2025L/experiments/results/dataset_comparison/plots/comparison_fit_time.png
+
+Dataset comparison phase complete.

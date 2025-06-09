@@ -53,7 +53,7 @@ def find_best_split(X, y, feature_indices, criterion='gini', min_samples_leaf=1,
     if criterion == 'entropy':
         parent_impurity = calculate_entropy(y)
         calculate_impurity = calculate_entropy
-    else:  # default to gini
+    else:
         parent_impurity = calculate_gini_impurity(y)
         calculate_impurity = calculate_gini_impurity
 
